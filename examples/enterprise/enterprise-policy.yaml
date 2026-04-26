@@ -1,0 +1,85 @@
+version: "1.0"
+
+settings:
+  read_only: false
+  default_action: "block"
+
+rate_limits:
+  global:
+    requests_per_minute: 120
+    burst_capacity: 20
+  per_tool:
+    deploy_release:
+      requests_per_minute: 5
+      burst_capacity: 2
+  per_session:
+    requests_per_minute: 60
+    burst_capacity: 10
+
+cost:
+  session_budget: 100.00
+  budget_action: "block"
+  tool_costs:
+    deploy_release: 25.00
+    database_execute: 1.00
+    file_write: 0.50
+
+validation:
+  rules:
+    - id: "no_drop_table"
+      type: "regex"
+      tools: ["database_execute"]
+      argument: "query"
+      patterns:
+        - pattern: "DROP\\s+TABLE"
+          flags: "i"
+          message: "DROP TABLE is not allowed"
+
+rules:
+  - id: "allow_select"
+    type: "allow"
+    tools: ["database_execute"]
+    conditions:
+      - argument: query
+        pattern: "^SELECT\\s+"
+        flags: "i"
+    priority: 100
+
+  - id: "allow_describe"
+    type: "allow"
+    tools: ["database_describe"]
+    priority: 90
+
+  - id: "approval_for_writes"
+    type: "approval_required"
+    tools: ["file_write", "database_execute", "deploy_release"]
+    priority: 50
+    description: "Writes and deploys require security-team approval"
+
+approvals:
+  default_timeout_ms: 300000
+  max_pending_approvals: 1000
+  required_for:
+    - tools: ["deploy_release"]
+      approvers: ["security-team", "release-manager"]
+      min_approvals: 2
+    - tools: ["file_write", "database_execute"]
+      approvers: ["security-team"]
+      min_approvals: 1
+
+# When --approval-port is set, the approval API requires a bearer token.
+approval_api:
+  token_env: APPROVAL_API_TOKEN
+  bind_host: 127.0.0.1
+
+emergency_override:
+  enabled: true
+  token_env: FIREWALL_BYPASS_TOKEN
+
+audit:
+  level: "full"
+  redaction:
+    enabled: true
+  output:
+    - type: file
+      path: ./enterprise-audit.log
