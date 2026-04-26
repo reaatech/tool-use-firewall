@@ -32,6 +32,7 @@ export const rateLimitConfigSchema = z.object({
     .optional(),
   per_tool: z
     .record(
+      z.string(),
       z.object({
         requests_per_minute: z.number().positive(),
         burst_capacity: z.number().positive(),
@@ -48,7 +49,7 @@ export const rateLimitConfigSchema = z.object({
 
 export const costConfigSchema = z.object({
   session_budget: z.number().nonnegative().optional(),
-  tool_costs: z.record(z.number().nonnegative()).optional(),
+  tool_costs: z.record(z.string(), z.number().nonnegative()).optional(),
   budget_action: z.enum(['block', 'warn']).default('block'),
 });
 
@@ -123,7 +124,7 @@ export const policyConfigSchema = z.object({
       default_action: z.enum(['block', 'allow']).default('block'),
       audit_level: z.enum(['none', 'summary', 'full']).default('full'),
     })
-    .default({}),
+    .default({ read_only: false, default_action: 'block', audit_level: 'full' }),
   rate_limits: rateLimitConfigSchema.optional(),
   cost: costConfigSchema.optional(),
   validation: z
