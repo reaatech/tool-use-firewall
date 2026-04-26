@@ -1,0 +1,40 @@
+version: "1.0"
+
+settings:
+  read_only: false
+  default_action: "block"
+  audit_level: "full"
+
+rate_limits:
+  global:
+    requests_per_minute: 60
+    burst_capacity: 10
+  per_session:
+    requests_per_minute: 100
+    burst_capacity: 20
+
+cost:
+  session_budget: 100.00
+  budget_action: "block"
+
+validation:
+  rules:
+    - id: "sql_no_drop"
+      type: "sql_safe"
+      tools: ["database_*"]
+      argument: "query"
+
+    - id: "shell_safe"
+      type: "shell_safe"
+      tools: ["shell_*", "exec"]
+      argument: "command"
+
+audit:
+  level: "full"
+  redaction:
+    enabled: true
+  # No `output` configured — audit events are written to stderr by default.
+  # To persist to a file, add:
+  #   output:
+  #     - type: file
+  #       path: /var/log/tool-use-firewall/audit.log

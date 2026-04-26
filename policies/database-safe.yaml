@@ -1,0 +1,51 @@
+version: "1.0"
+
+settings:
+  read_only: false
+  default_action: "block"
+  audit_level: "full"
+
+rate_limits:
+  global:
+    requests_per_minute: 30
+    burst_capacity: 5
+
+validation:
+  rules:
+    - id: "block_drop"
+      type: "regex"
+      tools: ["database_execute"]
+      argument: "query"
+      patterns:
+        - pattern: "DROP\\s+TABLE"
+          flags: "i"
+          message: "DROP TABLE is not allowed"
+        - pattern: "TRUNCATE"
+          flags: "i"
+          message: "TRUNCATE is not allowed"
+        - pattern: "DELETE\\s+FROM\\s+\\w+\\s*$"
+          flags: "i"
+          message: "DELETE without WHERE clause is not allowed"
+
+rules:
+  - id: "allow_select"
+    type: "allow"
+    tools: ["database_execute"]
+    conditions:
+      - argument: "query"
+        pattern: "^SELECT\\s+"
+        flags: "i"
+    priority: 100
+    description: "Read-only SELECT queries are allowed"
+
+  - id: "allow_describe"
+    type: "allow"
+    tools: ["database_describe"]
+    priority: 90
+
+read_only_exceptions:
+  - tools: ["database_execute"]
+    conditions:
+      - argument: "query"
+        pattern: "^SELECT\\s+"
+        flags: "i"

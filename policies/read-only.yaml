@@ -1,0 +1,15 @@
+version: '1.0'
+settings:
+  default_action: allow
+  read_only: true
+
+read_only_exceptions:
+  - tools: ['database_execute']
+    conditions:
+      - argument: query
+        pattern: '^SELECT\\s+'
+        flags: 'i'
+
+emergency_override:
+  enabled: true
+  token_env: FIREWALL_BYPASS_TOKEN
