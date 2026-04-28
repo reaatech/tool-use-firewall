@@ -29,7 +29,7 @@ const jsonRpcMessageSchema = z.object({
   jsonrpc: z.literal('2.0').optional(),
   id: z.union([z.string(), z.number(), z.null()]).optional(),
   method: z.string().optional(),
-  params: z.record(z.unknown()).optional(),
+  params: z.record(z.string(), z.unknown()).optional(),
   result: z.unknown().optional(),
   error: z.unknown().optional(),
 });
