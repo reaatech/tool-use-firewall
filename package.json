@@ -54,7 +54,7 @@
   "packageManager": "pnpm@9.0.0",
   "dependencies": {
     "express": "^5.2.1",
-    "yaml": "^2.7.1",
+    "yaml": "^2.8.4",
     "zod": "^4.3.6"
   },
   "devDependencies": {
