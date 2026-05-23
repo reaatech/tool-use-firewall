@@ -1,3 +1,4 @@
+import { createWriteStream } from 'node:fs';
 import type { AuditConfig } from '@reaatech/tool-use-firewall-config';
 import {
   DEFAULT_REDACTION_PATTERNS,
@@ -33,6 +34,7 @@ export class AuditLogger {
   private readonly redactionEnabled: boolean;
   private readonly redactionPatterns?: RedactionPattern[];
   private readonly logger: Logger;
+  private readonly sidecarStream?: ReturnType<typeof createWriteStream>;
 
   constructor(options: AuditLoggerOptions = {}) {
     const config = options.config;
@@ -61,6 +63,11 @@ export class AuditLogger {
         if (!out.path) throw new Error('audit.output[file] requires a `path`');
         filePath = out.path;
       }
+      if (out.type === 'sidecar') {
+        if (out.path) {
+          this.sidecarStream = createWriteStream(out.path, { flags: 'a' });
+        }
+      }
     }
     this.logger = new Logger('AuditLogger', filePath);
   }
@@ -83,6 +90,11 @@ export class AuditLogger {
         : event;
 
     const safeEvent = this.redactionEnabled ? redact(emitted, this.redactionPatterns) : emitted;
+    const json = `${JSON.stringify(safeEvent)}\n`;
     this.logger.info('audit_event', safeEvent as unknown as Record<string, unknown>);
+
+    if (this.sidecarStream) {
+      this.sidecarStream.write(json);
+    }
   }
 }

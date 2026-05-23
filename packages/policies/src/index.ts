@@ -8,3 +8,6 @@ export {
 export { ArgumentValidator, type ValidationResult, type ValidatorFn } from './validator.js';
 export { PolicyEngine, type EvaluationResult } from './engine.js';
 export { ReadOnlyCheck } from './read-only.js';
+export { SchemaValidator } from './schema-validator.js';
+export { SecretScanner } from './secret-scanner.js';
+export { AnomalyDetector } from './anomaly-detector.js';
