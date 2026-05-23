@@ -12,7 +12,7 @@ const tools = [
 ];
 
 function send(message) {
-  process.stdout.write(JSON.stringify(message) + '\n');
+  process.stdout.write(`${JSON.stringify(message)}\n`);
 }
 
 rl.on('line', (line) => {

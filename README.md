@@ -1,177 +1,180 @@
-# 🔥 tool-use-firewall
-
-Policy enforcement layer between AI agents and MCP servers.
+# tool-use-firewall
 
 [![CI](https://github.com/reaatech/tool-use-firewall/actions/workflows/ci.yml/badge.svg)](https://github.com/reaatech/tool-use-firewall/actions/workflows/ci.yml)
-[![Coverage](https://img.shields.io/badge/coverage-95%25-brightgreen)](https://github.com/reaatech/tool-use-firewall)
-[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
+[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
+[![TypeScript](https://img.shields.io/badge/TypeScript-5.8-blue)](https://www.typescriptlang.org/)
+[![pnpm](https://img.shields.io/badge/pnpm-10.22-orange)](https://pnpm.io/)
+[![Vitest](https://img.shields.io/badge/test-vitest-green)](https://vitest.dev/)
 
-## Overview
+> **Policy enforcement layer between AI agents and MCP servers** — intercept, validate, and secure every tool call before it reaches the upstream.
 
-`tool-use-firewall` is a security-critical proxy that sits between AI agents and [Model Context Protocol (MCP)](https://modelcontextprotocol.io) servers. It intercepts tool calls, enforces security policies, and provides human-in-the-loop approvals for dangerous operations.
+---
 
-### Key Features
+## Why tool-use-firewall?
 
-- **Policy Engine** — Block, allow, or require approval based on tool name, arguments, and custom rules
-- **Rate Limiting** — Global, per-tool, and per-session token buckets with bounded memory
-- **Argument Validation** — Regex, shell-safety, and SQL-injection checks
-- **Read-Only Mode** — Block write operations with break-glass bypass tokens
-- **Cost Tracking** — Enforce session budgets for expensive tool calls
-- **Audit Logging** — Redacted, structured logs to stderr or files (never stdout)
-- **Approval Workflows** — Multi-level human approval chains with timeout handling
-- **Safe Regex** — ReDoS protection for all user-configured patterns
+AI agents are powerful, but they can also be dangerous. A single errant `DROP TABLE` or `rm -rf /` can destroy hours of work. This project sits between your AI agent and your MCP servers, acting as a **security guard** for every tool invocation — rate limiting, argument validation, cost tracking, read-only enforcement, and human-in-the-loop approval chains.
 
-## Quick Start
+If you're deploying AI agents that talk to databases, filesystems, or any MCP server, this is your safety net.
 
-### Prerequisites
+---
 
-- Node.js ≥ 20
-- pnpm ≥ 9
+## Architecture
 
-### Installation
+```
+┌─────────────────┐     ┌──────────────────────┐     ┌─────────────────┐
+│   AI Agent      │────▶│   tool-use-firewall  │────▶│  Upstream MCP   │
+│   (Claude,      │     │   (Interceptor       │     │  Server         │
+│   GPT, etc.)    │◀────│    Pipeline)          │◀────│  (Database,     │
+└─────────────────┘     └──────────────────────┘     │   Filesystem,   │
+                                                      │   Network, etc.) │
+                                                      └─────────────────┘
+```
+
+The interceptor pipeline enforces policies in strict order:
+
+```
+Request → Rate Limiter → Cost Tracker → Argument Validator → Policy Engine → Read-Only Check → Approval Workflow → Audit Logger → Upstream
+```
+
+Data flow details and state management: [ARCHITECTURE.md](./ARCHITECTURE.md)
+
+---
+
+## Features
+
+### Policy Engine
+- **Rule evaluation** — Block, allow, or require approval by tool name, argument values, and custom conditions
+- **Priority-based matching** — Rules evaluated in priority order; first match wins
+- **Glob pattern matching** — `db.*` matches `db.execute`, `db.query`, etc.
+
+### Rate Limiting
+- **Token bucket algorithm** — Global, per-tool, and per-session limits
+- **Bounded memory** — TTL-based eviction prevents memory exhaustion
+- **Burst capacity** — Configurable burst allowance for traffic spikes
+
+### Argument Validation
+- **SQL injection detection** — Pattern matching against known dangerous patterns
+- **Shell injection prevention** — Blocks metacharacters like `;`, `&&`, `` ` ``, `$()`
+- **Custom regex patterns** — User-defined validation per tool/argument
+- **ReDoS protection** — All regex patterns validated for safety before compilation
+
+### Read-Only Mode
+- **Global toggle** — Block all write operations when enabled
+- **Per-tool exceptions** — Allow-list for read-only safe tools
+- **Break-glass tokens** — Timing-safe bypass for emergencies
+
+### Cost Tracking
+- **Per-session budgets** — Enforce cost limits for expensive tool calls
+- **Tool-level pricing** — Assign costs per invocation
+- **Configurable action** — Block or warn when budget exceeded
+
+### Approval Workflows
+- **Multi-level chains** — Require approval from multiple groups
+- **Timeout handling** — Expired approvals automatically denied
+- **Multiple interfaces** — HTTP API, CLI prompts, webhook notifications
+- **Rate-limited API** — Per-IP token bucket on the approval HTTP endpoint
+
+### Audit Logging
+- **Structured JSON** — Every decision recorded with full context
+- **Sensitive data redaction** — API keys, tokens, emails automatically redacted
+- **Level control** — `none`, `summary`, or `full` verbosity
+- **File output** — Optional file logging with rotation support
+
+---
+
+## Installation
+
+### Local development
 
 ```bash
-pnpm install tool-use-firewall
+git clone https://github.com/reaatech/tool-use-firewall.git
+cd tool-use-firewall
+pnpm install
+pnpm build
+pnpm test
 ```
 
 ### Usage
 
 ```bash
-npx tool-use-firewall \
-  --config ./policies/default.yaml \
-  --upstream node ./your-mcp-server.js
+pnpm dev -- --config ./policies/default.yaml --upstream node ./examples/basic-proxy/upstream-server.js
 ```
 
-With approval API enabled (auth is required — the API binds to `127.0.0.1` by
-default):
+Or with the approval API:
 
 ```bash
 export APPROVAL_API_TOKEN="$(openssl rand -hex 32)"
-npx tool-use-firewall \
+pnpm dev -- \
   --config ./policies/default.yaml \
-  --upstream node ./your-mcp-server.js \
+  --upstream node ./examples/basic-proxy/upstream-server.js \
   --approval-port 8080
 ```
 
-Add this to the policy YAML to enable the approval API:
+---
 
-```yaml
-approval_api:
-  token_env: APPROVAL_API_TOKEN
-  bind_host: 127.0.0.1   # optional, defaults to 127.0.0.1
-```
+## Packages
 
-If `--approval-port` is set without a corresponding `approval_api.token_env`,
-the proxy refuses to start rather than expose an unauthenticated API.
+| Package | Description | Dependencies |
+| ------- | ----------- | ------------ |
+| [`core`](./packages/core) | Types, error classes, logger, redactor, safe-regex | (none) |
+| [`config`](./packages/config) | Policy YAML schema (Zod) and loader | `core`, `yaml`, `zod` |
+| [`policies`](./packages/policies) | Policy engine, rate limiter, cost tracker, validators | `core`, `config` |
+| [`approvals`](./packages/approvals) | Approval workflow, HTTP API, CLI/webhook approvers | `core`, `config`, `policies`, `express`, `zod` |
+| [`audit`](./packages/audit) | Audit logging with redaction | `core`, `config` |
+| [`server`](./packages/server) | MCP proxy server, CLI, interceptor pipeline | `core`, `config`, `policies`, `approvals`, `audit` |
 
-Pass arguments to your upstream MCP server after a literal `--`:
+---
 
-```bash
-npx tool-use-firewall \
-  --config ./policies/default.yaml \
-  --upstream node -- ./your-mcp-server.js --port 9000
-```
+## Policy Configuration
 
-### Policy Configuration
+See [`policies/`](./policies/) for example YAML files:
 
-Create a `policies/default.yaml`:
+| Policy | Description |
+| ------ | ----------- |
+| [`default.yaml`](./policies/default.yaml) | Sensible defaults — rate limits, SQL safety, shell safety |
+| [`database-safe.yaml`](./policies/database-safe.yaml) | Database-focused policy with strict SQL validation |
+| [`read-only.yaml`](./policies/read-only.yaml) | Read-only mode with bypass token support |
 
-```yaml
-version: '1.0'
-settings:
-  default_action: block
-  read_only: false
-
-rate_limits:
-  global:
-    requests_per_minute: 120
-    burst_capacity: 20
-  per_tool:
-    database_execute:
-      requests_per_minute: 10
-      burst_capacity: 3
-
-validation:
-  rules:
-    - id: no_shell_injection
-      type: shell_safe
-      tools: ['execute_command']
-      argument: 'cmd'
-
-rules:
-  - id: block_drop_table
-    type: block
-    tools: ['database_execute']
-    conditions:
-      - argument: query
-        pattern: 'DROP\\s+TABLE'
-        flags: 'i'
-    priority: 100
-    description: 'Prevent DROP TABLE operations'
-
-approvals:
-  default_timeout_ms: 300000
-  max_pending_approvals: 1000
-  required_for:
-    - tools: ['file_write', 'database_execute']
-      approvers: ['security-team']
-      min_approvals: 1
-```
-
-## Architecture
-
-```
-AI Agent → tool-use-firewall → Upstream MCP Server
-              │
-              ├─ Policy Engine (block/allow/approve)
-              ├─ Rate Limiter (token buckets)
-              ├─ Argument Validator (regex/SQL/shell)
-              ├─ Read-Only Check
-              ├─ Cost Tracker
-              └─ Audit Logger (redacted)
-```
-
-The proxy uses stdio JSON-RPC to communicate with both the agent and the upstream MCP server. The approval API runs as a separate HTTP server.
-
-## Security
-
-See [SECURITY.md](SECURITY.md) for our security policy and vulnerability reporting process.
-
-- **Bounded Storage** — All stateful components implement TTL/capacity-based eviction. Unbounded `Map` usage is treated as a vulnerability.
-- **ReDoS Protection** — All regex patterns from config are validated before compilation.
-- **Timing-Safe Comparisons** — Bearer tokens and bypass tokens use `crypto.timingSafeEqual`.
-- **Sensitive Data Redaction** — Audit logs and API responses automatically redact passwords, API keys, emails, and bearer tokens.
-- **Input Validation** — JSON-RPC messages, approval API bodies, and CLI arguments are all schema-validated.
-
-## Development
-
-```bash
-# Install dependencies
-pnpm install
-
-# Build
-pnpm build
-
-# Run tests
-pnpm test
-
-# Run tests with coverage
-pnpm test:coverage
-
-# Lint
-pnpm lint
-
-# Type check
-pnpm typecheck
-```
+---
 
 ## Documentation
 
-- [ARCHITECTURE.md](ARCHITECTURE.md) — Technical design and resource management patterns
-- [DEV_PLAN.md](DEV_PLAN.md) — Roadmap and current phase
-- [CONTRIBUTING.md](CONTRIBUTING.md) — Contribution guidelines and commit conventions
-- [AGENTS.md](AGENTS.md) — Guidelines for AI agents working on this codebase
+| Document | Content |
+| -------- | ------- |
+| [ARCHITECTURE.md](./ARCHITECTURE.md) | System design, pipeline flow, resource management |
+| [CONTRIBUTING.md](./CONTRIBUTING.md) | Development setup, conventional commits, PR process |
+| [AGENTS.md](./AGENTS.md) | Coding conventions and guidance for AI agents |
+| [SECURITY.md](./SECURITY.md) | Security policy and vulnerability reporting |
+
+---
+
+## Tech Stack
+
+| Layer | Technology |
+| ----- | ---------- |
+| Language | TypeScript 5.8 (strict mode) |
+| Runtime | Node.js ≥ 20 |
+| Package manager | pnpm 10 (workspaces) |
+| Build | tsup + Turborepo |
+| Lint & format | Biome |
+| Testing | Vitest |
+| Validation | Zod |
+| Schema | YAML |
+
+---
+
+## Contributing
+
+Contributions are welcome. See [CONTRIBUTING.md](./CONTRIBUTING.md) for the full workflow:
+
+1. Fork the repo, create a feature branch
+2. Write code with tests (`vitest`), lint with `biome`
+3. Run `pnpm lint && pnpm test` before committing
+4. Use [Conventional Commits](https://www.conventionalcommits.org/)
+5. Open a PR
+
+---
 
 ## License
 
-MIT © [reaatech](https://github.com/reaatech)
+[MIT](./LICENSE) © [Rick Somers](https://reaatech.com)
