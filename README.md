@@ -84,7 +84,86 @@ Data flow details and state management: [ARCHITECTURE.md](./ARCHITECTURE.md)
 
 ## Installation
 
-### Local development
+The published entry point is **[`@reaatech/tool-use-firewall-server`](https://www.npmjs.com/package/@reaatech/tool-use-firewall-server)**, which ships the `tool-use-firewall` binary and pulls in the other `@reaatech/tool-use-firewall-*` packages. Run it without installing via `npx`:
+
+```bash
+npx @reaatech/tool-use-firewall-server \
+  --config ./policy.yaml \
+  --upstream node ./my-mcp-server.js
+```
+
+Or install the CLI globally:
+
+```bash
+npm install -g @reaatech/tool-use-firewall-server
+tool-use-firewall --config ./policy.yaml --upstream node ./my-mcp-server.js
+```
+
+> Requires Node.js ≥ 20.
+
+### Quick start
+
+Generate a starter policy from your upstream server's tool list, then run the firewall against it:
+
+```bash
+# 1. Scaffold a policy.generated.yaml from the upstream's tools/list
+tool-use-firewall --init --upstream node ./my-mcp-server.js
+
+# 2. Validate it (schema + ReDoS checks) — exits non-zero on failure, good for CI
+tool-use-firewall --validate ./policy.generated.yaml
+
+# 3. Run the proxy
+tool-use-firewall --config ./policy.generated.yaml --upstream node ./my-mcp-server.js
+```
+
+To plug into an MCP client (e.g. Claude Desktop), point the client at the firewall instead of the upstream:
+
+```json
+{
+  "mcpServers": {
+    "my-server": {
+      "command": "npx",
+      "args": [
+        "@reaatech/tool-use-firewall-server",
+        "--config", "/abs/path/to/policy.yaml",
+        "--upstream", "node",
+        "--", "/abs/path/to/my-mcp-server.js"
+      ]
+    }
+  }
+}
+```
+
+With the human-in-the-loop approval API enabled:
+
+```bash
+export APPROVAL_API_TOKEN="$(openssl rand -hex 32)"
+tool-use-firewall \
+  --config ./policy.yaml \
+  --upstream node ./my-mcp-server.js \
+  --approval-port 8080
+```
+
+Use `--upstream-args` for container/scripted environments where the upstream command and its args are a single string:
+
+```bash
+tool-use-firewall --config ./policy.yaml --upstream node --upstream-args "./my-mcp-server.js --port 9000"
+```
+
+### Programmatic use
+
+```ts
+import { MCPProxyServer } from '@reaatech/tool-use-firewall-server';
+
+const server = new MCPProxyServer({
+  policyPath: './policy.yaml',
+  upstreamCommand: 'node',
+  upstreamArgs: ['./my-mcp-server.js'],
+});
+await server.start();
+```
+
+### From source (contributors)
 
 ```bash
 git clone https://github.com/reaatech/tool-use-firewall.git
@@ -92,28 +171,9 @@ cd tool-use-firewall
 pnpm install
 pnpm build
 pnpm test
-```
 
-### Usage
-
-```bash
+# Run the local build against an example upstream
 pnpm dev -- --config ./policies/default.yaml --upstream node ./examples/basic-proxy/upstream-server.js
-```
-
-Or with the approval API:
-
-```bash
-export APPROVAL_API_TOKEN="$(openssl rand -hex 32)"
-pnpm dev -- \
-  --config ./policies/default.yaml \
-  --upstream node ./examples/basic-proxy/upstream-server.js \
-  --approval-port 8080
-```
-
-Or using `--upstream-args` for container/scripted environments:
-
-```bash
-pnpm dev -- --config ./policies/default.yaml --upstream node --upstream-args "./my-mcp-server.js --port 9000"
 ```
 
 ---

@@ -2,6 +2,7 @@
 import { spawn } from 'node:child_process';
 import { writeFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
+import { validatePolicyFile } from '@reaatech/tool-use-firewall-config';
 import { MCPProxyServer } from './server.js';
 
 declare const __PACKAGE_VERSION__: string | undefined;
@@ -18,6 +19,7 @@ const FIREWALL_FLAGS = new Set([
   '--version',
   '-v',
   '--init',
+  '--validate',
   '--http-port',
   '--dry-run',
 ]);
@@ -41,6 +43,7 @@ Options:
   --http-port         Port for the HTTP transport (optional)
   --dry-run           Shadow mode: log blocked actions but don't enforce
   --init              Scaffold a policy YAML from the upstream server's tools/list
+  --validate <path>   Validate a policy YAML (schema + ReDoS checks) and exit
   --help, -h          Show this help message
   --version, -v       Show version
 
@@ -60,6 +63,7 @@ interface ParsedArgs {
   httpPort?: number;
   dryRun?: boolean;
   initMode?: boolean;
+  validatePath?: string;
 }
 
 export function parseArgs(argv: string[]): ParsedArgs {
@@ -71,6 +75,7 @@ export function parseArgs(argv: string[]): ParsedArgs {
   let httpPort: number | undefined;
   let dryRun = false;
   let initMode = false;
+  let validatePath: string | undefined;
 
   for (let i = 0; i < args.length; i++) {
     const arg = args[i];
@@ -131,9 +136,27 @@ export function parseArgs(argv: string[]): ParsedArgs {
       initMode = true;
       continue;
     }
+    if (arg === '--validate') {
+      const raw = args[++i];
+      if (typeof raw !== 'string' || raw.length === 0 || raw.startsWith('-')) {
+        console.error('Error: --validate requires a path to a policy YAML file');
+        process.exit(1);
+      }
+      validatePath = raw;
+      continue;
+    }
     console.error(`Error: unknown argument: ${arg}`);
     showHelp();
     process.exit(1);
+  }
+
+  if (validatePath) {
+    return {
+      configPath: validatePath,
+      upstreamCommand: upstreamCommand ?? '',
+      upstreamArgs,
+      validatePath,
+    };
   }
 
   if (initMode) {
@@ -302,6 +325,26 @@ function generatePolicyYaml(tools: Array<{ name: string; description?: string }>
   return `${lines.join('\n')}\n`;
 }
 
+/** Validate a policy file and exit with code 0 (valid) or 1 (invalid). */
+export function doValidate(path: string): never {
+  const result = validatePolicyFile(path);
+
+  for (const warning of result.warnings) {
+    console.error(`⚠️  ${warning}`);
+  }
+
+  if (result.valid) {
+    console.error(`✓ Policy is valid: ${path}`);
+    process.exit(0);
+  }
+
+  console.error(`✗ Policy is invalid: ${path}`);
+  for (const error of result.errors) {
+    console.error(`  - ${error}`);
+  }
+  process.exit(1);
+}
+
 async function main(): Promise<void> {
   const argv = process.argv.slice(2);
 
@@ -315,6 +358,10 @@ async function main(): Promise<void> {
   }
 
   const parsed = parseArgs(argv);
+
+  if (parsed.validatePath) {
+    doValidate(parsed.validatePath);
+  }
 
   if (parsed.initMode) {
     await doInit(parsed.upstreamCommand, parsed.upstreamArgs);

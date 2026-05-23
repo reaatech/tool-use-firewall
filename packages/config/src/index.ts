@@ -1,4 +1,5 @@
 export { loadPolicyConfig } from './load.js';
+export { validatePolicyFile, type PolicyValidationResult } from './validate.js';
 export {
   policyConfigSchema,
   ruleConditionSchema,
