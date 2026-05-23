@@ -110,6 +110,12 @@ pnpm dev -- \
   --approval-port 8080
 ```
 
+Or using `--upstream-args` for container/scripted environments:
+
+```bash
+pnpm dev -- --config ./policies/default.yaml --upstream node --upstream-args "./my-mcp-server.js --port 9000"
+```
+
 ---
 
 ## Packages

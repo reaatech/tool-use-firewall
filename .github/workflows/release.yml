@@ -62,12 +62,16 @@ jobs:
           NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           PUBLISHED_PACKAGES: ${{ steps.changesets.outputs.publishedPackages }}
         run: |
-          cat > .npmrc <<EOF
+          cat >> .npmrc <<EOF
           @reaatech:registry=https://npm.pkg.github.com
           //npm.pkg.github.com/:_authToken=${NODE_AUTH_TOKEN}
           EOF
           echo "$PUBLISHED_PACKAGES" | jq -r '.[].name' | while read -r name; do
             dir="packages/${name#@reaatech/tool-use-firewall-}"
+            if [ ! -d "$dir" ]; then
+              echo "ERROR: Cannot determine directory for package $name (expected $dir)"
+              exit 1
+            fi
             echo "Mirroring $name -> $dir"
             (cd "$dir" && npm publish --registry=https://npm.pkg.github.com)
           done

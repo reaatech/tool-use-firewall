@@ -21,7 +21,28 @@ const denyBodySchema = z.object({
   reason: z.string().optional(),
 });
 
-export function createApprovalApi(workflow: ApprovalWorkflow, apiKey: string): express.Application {
+/** Creates an Express application with a REST API for managing approval requests.
+ *
+ * Endpoints:
+ * - `GET /health` — Health check with uptime and pending count
+ * - `GET /api/v1/approvals/pending` — List pending approvals (redacted)
+ * - `GET /api/v1/approvals/:id` — Get a specific approval
+ * - `POST /api/v1/approvals/:id/approve` — Approve a request
+ * - `POST /api/v1/approvals/:id/deny` — Deny a request
+ *
+ * @example
+ * ```ts
+ * const app = createApprovalApi(workflow, apiKey);
+ * app.listen(3001, '127.0.0.1', () => {
+ *   console.log('Approval API listening on port 3001');
+ * });
+ * ```
+ */
+export function createApprovalApi(
+  workflow: ApprovalWorkflow,
+  apiKey: string,
+  opts?: { getStats?: () => Record<string, unknown> },
+): express.Application {
   if (typeof apiKey !== 'string' || apiKey.length === 0) {
     throw new Error('createApprovalApi requires a non-empty apiKey');
   }
@@ -90,7 +111,15 @@ export function createApprovalApi(workflow: ApprovalWorkflow, apiKey: string): e
   });
 
   app.get('/health', (_req, res) => {
-    res.json({ status: 'ok' });
+    const payload: Record<string, unknown> = {
+      status: 'ok',
+      uptime: process.uptime(),
+      pendingApprovals: workflow.listPending().length,
+    };
+    if (opts?.getStats) {
+      Object.assign(payload, opts.getStats());
+    }
+    res.json(payload);
   });
 
   app.get('/api/v1/approvals/pending', (_req, res) => {

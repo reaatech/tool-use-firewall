@@ -1,4 +1,5 @@
 import { timingSafeEqual } from 'node:crypto';
+import type { ExceptionCondition } from '@reaatech/tool-use-firewall-config';
 import type {
   Middleware,
   MiddlewareResult,
@@ -6,12 +7,6 @@ import type {
 } from '@reaatech/tool-use-firewall-core';
 import { PolicyViolationError } from '@reaatech/tool-use-firewall-core';
 import { safeRegExp } from '@reaatech/tool-use-firewall-core';
-
-interface ExceptionCondition {
-  argument: string;
-  pattern: string;
-  flags?: string;
-}
 
 interface ReadOnlyException {
   tools?: string[];
@@ -25,11 +20,11 @@ export class ReadOnlyCheck implements Middleware {
 
   constructor(config: {
     enabled: boolean;
-    exceptions?: Array<Record<string, unknown>>;
+    exceptions?: ReadOnlyException[];
     bypassTokenEnv?: string;
   }) {
     this.enabled = config.enabled;
-    this.exceptions = (config.exceptions ?? []) as unknown as ReadOnlyException[];
+    this.exceptions = config.exceptions ?? [];
     if (config.bypassTokenEnv) {
       this.bypassToken = process.env[config.bypassTokenEnv];
     }
@@ -116,8 +111,13 @@ export class ReadOnlyCheck implements Middleware {
 
     const query = args.query;
     if (typeof query === 'string') {
-      const writeStatements = /^(INSERT|UPDATE|DELETE|DROP|CREATE|ALTER|TRUNCATE)\s/i;
-      return writeStatements.test(query.trim());
+      try {
+        return safeRegExp('^(INSERT|UPDATE|DELETE|DROP|CREATE|ALTER|TRUNCATE)\\s', 'i').test(
+          query.trim(),
+        );
+      } catch {
+        return true;
+      }
     }
 
     return false;

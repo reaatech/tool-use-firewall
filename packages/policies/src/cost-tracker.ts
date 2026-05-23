@@ -11,6 +11,20 @@ interface SessionCost {
   lastAccessed: number;
 }
 
+/** Tracks per-session costs against a configured budget. Costs are estimated
+ * from `tool_costs` mapping (flat per-tool cost). Exceeding the budget either
+ * blocks the request or emits a warning in metadata depending on `budget_action`.
+ *
+ * @example
+ * ```ts
+ * const tracker = new CostTracker({
+ *   session_budget: 100,
+ *   tool_costs: { deploy_release: 25, database_execute: 1 },
+ *   budget_action: 'block',
+ * });
+ * // Register as middleware in interceptor pipeline
+ * ```
+ */
 export class CostTracker implements Middleware {
   private readonly sessions = new Map<string, SessionCost>();
   private readonly sessionBudget: number;

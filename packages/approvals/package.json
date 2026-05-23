@@ -24,6 +24,16 @@
     }
   },
   "files": ["dist"],
+  "keywords": [
+    "mcp",
+    "firewall",
+    "security",
+    "ai",
+    "proxy",
+    "approval",
+    "human-in-the-loop",
+    "webhook"
+  ],
   "publishConfig": { "access": "public" },
   "scripts": {
     "build": "tsup",
@@ -35,12 +45,20 @@
     "@reaatech/tool-use-firewall-core": "workspace:*",
     "@reaatech/tool-use-firewall-config": "workspace:*",
     "@reaatech/tool-use-firewall-policies": "workspace:*",
-    "express": "^5.2.1",
     "zod": "^4.4.3"
+  },
+  "peerDependencies": {
+    "express": "^5.0.0 || ^4.18.0"
+  },
+  "peerDependenciesMeta": {
+    "express": {
+      "optional": false
+    }
   },
   "devDependencies": {
     "@types/express": "^5.0.6",
     "@types/node": "^25.8.0",
+    "express": "^5.2.1",
     "tsup": "^8.4.0",
     "typescript": "^5.8.3",
     "vitest": "^3.1.1"

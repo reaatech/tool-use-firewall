@@ -42,15 +42,12 @@ const workflow = new ApprovalWorkflow({
 const app = createApprovalApi(workflow, "your-api-key");
 app.listen(8080);
 
-// Trigger an approval request (throws ApprovalRequiredError)
-try {
-  const ctx = createRequestContext({
-    requestId: "1", sessionId: "s1", method: "tools/call", toolName: "dangerous_tool",
-  });
-  await workflow.requestApproval(ctx);
-} catch (e) {
-  console.log(e.approvalId); // "appr_<uuid>"
-}
+// Request approval — returns an approval ID (does not throw)
+const ctx = createRequestContext({
+  requestId: "1", sessionId: "s1", method: "tools/call", toolName: "dangerous_tool",
+});
+const approvalId = await workflow.requestApproval(ctx);
+console.log(approvalId); // "appr_<uuid>"
 ```
 
 ## Exports

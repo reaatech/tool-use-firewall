@@ -41,6 +41,9 @@ importers:
       '@reaatech/tool-use-firewall-core':
         specifier: workspace:*
         version: link:../packages/core
+      '@reaatech/tool-use-firewall-policies':
+        specifier: workspace:*
+        version: link:../packages/policies
       '@reaatech/tool-use-firewall-server':
         specifier: workspace:*
         version: link:../packages/server
@@ -66,9 +69,6 @@ importers:
       '@reaatech/tool-use-firewall-policies':
         specifier: workspace:*
         version: link:../policies
-      express:
-        specifier: ^5.2.1
-        version: 5.2.1
       zod:
         specifier: ^4.4.3
         version: 4.4.3
@@ -79,6 +79,9 @@ importers:
       '@types/node':
         specifier: ^25.8.0
         version: 25.8.0
+      express:
+        specifier: ^5.2.1
+        version: 5.2.1
       tsup:
         specifier: ^8.4.0
         version: 8.5.1(postcss@8.5.10)(tsx@4.22.1)(typescript@5.9.3)(yaml@2.9.0)
@@ -190,6 +193,9 @@ importers:
       '@reaatech/tool-use-firewall-policies':
         specifier: workspace:*
         version: link:../policies
+      express:
+        specifier: ^5.2.1
+        version: 5.2.1
       zod:
         specifier: ^4.4.3
         version: 4.4.3
@@ -203,9 +209,6 @@ importers:
       '@types/supertest':
         specifier: ^7.2.0
         version: 7.2.0
-      express:
-        specifier: ^5.2.1
-        version: 5.2.1
       supertest:
         specifier: ^7.2.2
         version: 7.2.2

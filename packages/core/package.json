@@ -24,6 +24,7 @@
     }
   },
   "files": ["dist"],
+  "keywords": ["mcp", "firewall", "security", "ai", "proxy", "policy", "llm", "tool-use"],
   "publishConfig": { "access": "public" },
   "scripts": {
     "build": "tsup",

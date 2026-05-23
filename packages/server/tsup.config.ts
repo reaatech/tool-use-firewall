@@ -1,4 +1,10 @@
+import { readFileSync } from 'node:fs';
+import { resolve } from 'node:path';
 import { defineConfig } from 'tsup';
+
+const pkg = JSON.parse(readFileSync(resolve('package.json'), 'utf-8')) as {
+  version: string;
+};
 
 export default defineConfig({
   entry: {
@@ -11,4 +17,7 @@ export default defineConfig({
   },
   clean: true,
   tsconfig: './tsconfig.json',
+  define: {
+    __PACKAGE_VERSION__: JSON.stringify(pkg.version),
+  },
 });

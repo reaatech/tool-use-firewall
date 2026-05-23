@@ -28,7 +28,6 @@ export class TokenBucket {
   }
 
   getWaitTimeMs(tokens = 1): number {
-    this.refill();
     if (this.tokens >= tokens) return 0;
     const needed = tokens - this.tokens;
     return Math.ceil(needed / this.refillRatePerMs);
@@ -48,6 +47,19 @@ interface ToolRateLimitConfig {
   burst_capacity: number;
 }
 
+/** Enforces rate limits at global, per-tool, and per-session levels using
+ * token bucket algorithm. Throws `RateLimitError` with `retryAfterMs` when
+ * limits are exceeded.
+ *
+ * @example
+ * ```ts
+ * const limiter = new RateLimiter({
+ *   global: { requests_per_minute: 120, burst_capacity: 20 },
+ *   per_tool: { database_execute: { requests_per_minute: 10, burst_capacity: 2 } },
+ * });
+ * // Register as middleware in interceptor pipeline
+ * ```
+ */
 export class RateLimiter implements Middleware {
   private readonly globalLimiter?: TokenBucket;
   private readonly toolLimiters = new Map<string, TokenBucket>();

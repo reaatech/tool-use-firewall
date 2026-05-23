@@ -4,8 +4,15 @@ export default defineConfig({
   test: {
     globals: false,
     environment: 'node',
+    pool: 'forks',
     coverage: {
       reporter: ['text', 'json-summary'],
+      thresholds: {
+        statements: 75,
+        branches: 0,
+        functions: 0,
+        lines: 75,
+      },
     },
   },
 });

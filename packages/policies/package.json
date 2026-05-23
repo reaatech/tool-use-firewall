@@ -24,6 +24,17 @@
     }
   },
   "files": ["dist"],
+  "keywords": [
+    "mcp",
+    "firewall",
+    "security",
+    "ai",
+    "proxy",
+    "policy",
+    "rate-limiting",
+    "cost-tracking",
+    "sql-validation"
+  ],
   "publishConfig": { "access": "public" },
   "scripts": {
     "build": "tsup",

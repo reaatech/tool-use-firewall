@@ -8,6 +8,23 @@ export interface EvaluationResult {
   reason?: string;
 }
 
+/** Evaluates policy rules in priority order against incoming tool-call requests.
+ *
+ * Rules are sorted by priority (highest first). The first rule whose tool
+ * pattern and conditions match the request determines the outcome
+ * (ALLOW, BLOCK, or APPROVAL_REQUIRED). If no rule matches, the configured
+ * default action is used.
+ *
+ * @example
+ * ```ts
+ * const config = loadPolicyConfig('./policies/database-safe.yaml');
+ * const engine = new PolicyEngine(config);
+ * const result = await engine.evaluate(context);
+ * if (result.action === 'BLOCK') {
+ *   throw new Error(`Blocked: ${result.reason}`);
+ * }
+ * ```
+ */
 export class PolicyEngine {
   private readonly rules: Rule[];
   private readonly defaultAction: 'ALLOW' | 'BLOCK';
@@ -124,6 +141,14 @@ export class PolicyEngine {
 
   private extractArgValue(args: Record<string, unknown> | undefined, path: string): unknown {
     if (!args) return undefined;
-    return args[path];
+    const segments = path.split('.');
+    let current: unknown = args;
+    for (const segment of segments) {
+      if (current === null || current === undefined || typeof current !== 'object') {
+        return undefined;
+      }
+      current = (current as Record<string, unknown>)[segment];
+    }
+    return current;
   }
 }

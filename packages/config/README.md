@@ -41,6 +41,7 @@ console.log(config.settings?.default_action); // "block"
 | `policyConfigSchema` | Root Zod schema for the full policy YAML |
 | `ruleSchema` / `Rule` | Allow/block/approval rule with conditions and priority |
 | `ruleConditionSchema` / `RuleCondition` | Argument-based condition with pattern/equals/contains/gt/lt |
+| `exceptionConditionSchema` / `ExceptionCondition` | Read-only exception condition (argument + regex pattern) |
 | `rateLimitConfigSchema` / `RateLimitConfig` | Global, per-tool, and per-session rate limits |
 | `costConfigSchema` / `CostConfig` | Session budgets and per-tool costs |
 | `validationRuleSchema` / `ValidationRule` | Regex, shell-safe, and SQL-safe validation rules |

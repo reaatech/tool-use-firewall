@@ -20,7 +20,7 @@ pnpm add @reaatech/tool-use-firewall-server
 
 - **MCP proxy server** — Full JSON-RPC 2.0 proxy that spawns upstream MCP via stdio
 - **Interceptor pipeline** — Pluggable middleware chain: rate limiter → cost tracker → argument validator → policy engine → read-only check → approval workflow → audit logger
-- **CLI entry point** — `tool-use-firewall` command with `--config`, `--upstream`, and `--approval-port` options
+- **CLI entry point** — `tool-use-firewall` command with `--config`, `--upstream`, `--upstream-args`, and `--approval-port` options
 - **Unified exports** — Re-exports all public APIs from `core`, `config`, `policies`, `approvals`, and `audit` for a single import
 - **Graceful shutdown** — SIGTERM/SIGINT handling with upstream process lifecycle management
 - **Message size limits** — 10MB max message size, 128-char max session ID, 10000 max pending responses
@@ -68,7 +68,7 @@ process.on("SIGINT", async () => {
 | `FirewallError`, etc. | core | All error classes |
 | `Logger` | core | Structured logger |
 | `redact`, `safeRegExp`, `globToRegex` | core | Utilities |
-| `loadPolicyConfig`, `PolicyConfig` | config | Policy loading |
+| `loadPolicyConfig`, `PolicyConfig`, `RuleCondition`, `ExceptionCondition` | config | Policy loading and types |
 | `PolicyEngine`, `RateLimiter`, etc. | policies | Policy components |
 | `ApprovalWorkflow`, `createApprovalApi` | approvals | Approval system |
 | `AuditLogger` | audit | Audit logging |
