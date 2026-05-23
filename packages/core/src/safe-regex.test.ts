@@ -31,6 +31,20 @@ describe('safeRegExp', () => {
   it('throws on unsafe patterns', () => {
     expect(() => safeRegExp('(a+)+')).toThrow(UnsafeRegexError);
   });
+
+  it('throws on syntactically invalid patterns that pass safety checks', () => {
+    expect(() => safeRegExp('[a')).toThrow(UnsafeRegexError);
+  });
+
+  it('accepts patterns with grouping parentheses', () => {
+    expect(isSafeRegex('(hello)')).toBe(true);
+    expect(isSafeRegex('(foo)(bar)')).toBe(true);
+  });
+
+  it('rejects patterns with excessive nesting depth', () => {
+    const deep = `${'('.repeat(11)}x${')'.repeat(11)}`;
+    expect(isSafeRegex(deep)).toBe(false);
+  });
 });
 
 describe('globToRegex', () => {

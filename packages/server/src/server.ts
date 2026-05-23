@@ -9,15 +9,15 @@ import {
   ApprovalWorkflow,
   type ApproverGroup,
   createApprovalApi,
+  DiscordApprover,
+  SlackApprover,
 } from '@reaatech/tool-use-firewall-approvals';
-import { SlackApprover } from '@reaatech/tool-use-firewall-approvals';
-import { DiscordApprover } from '@reaatech/tool-use-firewall-approvals';
 import { AuditLogger } from '@reaatech/tool-use-firewall-audit';
 import {
   type ApproverGroupConfig,
+  loadPolicyConfig,
   type PolicyConfig,
   type UpstreamBackend,
-  loadPolicyConfig,
 } from '@reaatech/tool-use-firewall-config';
 import {
   ApprovalRequiredError,
