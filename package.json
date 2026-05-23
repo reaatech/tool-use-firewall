@@ -26,6 +26,7 @@
   ],
   "author": "Rick Somers <rick@reaatech.com> (https://reaatech.com)",
   "license": "MIT",
+  "packageManager": "pnpm@10.22.0",
   "repository": {
     "type": "git",
     "url": "https://github.com/reaatech/tool-use-firewall.git"
@@ -37,7 +38,14 @@
   "engines": {
     "node": ">=20.0.0"
   },
-  "packageManager": "pnpm@10.22.0",
+  "pnpm": {
+    "overrides": {
+      "fast-uri": "^3.1.2",
+      "ip-address": "^10.1.1",
+      "brace-expansion@>=5": ">=5.0.6",
+      "qs": "^6.15.2"
+    }
+  },
   "devDependencies": {
     "@biomejs/biome": "^1.9.4",
     "@vitest/coverage-v8": "3.2.4",
