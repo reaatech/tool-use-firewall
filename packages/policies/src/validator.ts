@@ -1,6 +1,10 @@
-import type { RequestContext, Middleware, MiddlewareResult } from '@reaatech/tool-use-firewall-core';
-import { ValidationError } from '@reaatech/tool-use-firewall-core';
 import type { ValidationRule } from '@reaatech/tool-use-firewall-config';
+import type {
+  Middleware,
+  MiddlewareResult,
+  RequestContext,
+} from '@reaatech/tool-use-firewall-core';
+import { ValidationError } from '@reaatech/tool-use-firewall-core';
 import { globToRegex, safeRegExp } from '@reaatech/tool-use-firewall-core';
 import { SQLValidator } from './sql-validator.js';
 import type { SQLValidationConfig } from './sql-validator.js';
@@ -18,10 +22,7 @@ export class ArgumentValidator implements Middleware {
   private readonly rules: ValidationRule[];
   private readonly sqlValidator?: SQLValidator;
 
-  constructor(
-    rules: ValidationRule[] = [],
-    sqlConfig?: SQLValidationConfig,
-  ) {
+  constructor(rules: ValidationRule[] = [], sqlConfig?: SQLValidationConfig) {
     this.rules = rules;
     this.registerDefaultValidators();
     if (sqlConfig) {

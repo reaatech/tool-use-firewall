@@ -21,7 +21,7 @@ export class WebhookApprover implements ApproverGroup {
       'Content-Type': 'application/json',
     };
     if (this.apiKey) {
-      headers['Authorization'] = `Bearer ${this.apiKey}`;
+      headers.Authorization = `Bearer ${this.apiKey}`;
     }
 
     try {

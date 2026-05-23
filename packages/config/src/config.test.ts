@@ -1,4 +1,4 @@
-import { describe, it, expect } from 'vitest';
+import { describe, expect, it } from 'vitest';
 import { policyConfigSchema } from './schema.js';
 
 describe('policyConfigSchema', () => {
@@ -13,9 +13,7 @@ describe('policyConfigSchema', () => {
     const config = {
       version: '1.0',
       settings: { read_only: true, default_action: 'block', audit_level: 'full' },
-      rules: [
-        { id: 'rule1', type: 'block', tools: ['dangerous_tool'], priority: 10 },
-      ],
+      rules: [{ id: 'rule1', type: 'block', tools: ['dangerous_tool'], priority: 10 }],
       rate_limits: {
         global: { requests_per_minute: 60, burst_capacity: 10 },
       },

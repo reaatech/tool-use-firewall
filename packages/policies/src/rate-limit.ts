@@ -1,6 +1,10 @@
-import type { RequestContext, Middleware, MiddlewareResult } from '@reaatech/tool-use-firewall-core';
-import { RateLimitError } from '@reaatech/tool-use-firewall-core';
 import type { RateLimitConfig } from '@reaatech/tool-use-firewall-config';
+import type {
+  Middleware,
+  MiddlewareResult,
+  RequestContext,
+} from '@reaatech/tool-use-firewall-core';
+import { RateLimitError } from '@reaatech/tool-use-firewall-core';
 
 export class TokenBucket {
   private tokens: number;

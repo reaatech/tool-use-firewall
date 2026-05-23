@@ -1,11 +1,11 @@
-import { describe, it, expect } from 'vitest';
+import { describe, expect, it } from 'vitest';
 import {
+  ApprovalRequiredError,
+  BudgetExceededError,
   FirewallError,
   PolicyViolationError,
   RateLimitError,
   ValidationError,
-  BudgetExceededError,
-  ApprovalRequiredError,
 } from './errors.js';
 
 describe('FirewallError', () => {
@@ -57,7 +57,11 @@ describe('BudgetExceededError', () => {
 
 describe('ApprovalRequiredError', () => {
   it('stores approvalId', () => {
-    const err = new ApprovalRequiredError({ message: 'Needs approval', requestId: 'req_1', approvalId: 'appr_123' });
+    const err = new ApprovalRequiredError({
+      message: 'Needs approval',
+      requestId: 'req_1',
+      approvalId: 'appr_123',
+    });
     expect(err.approvalId).toBe('appr_123');
     expect(err.code).toBe('APPROVAL_REQUIRED');
   });

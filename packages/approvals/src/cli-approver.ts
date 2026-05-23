@@ -1,6 +1,6 @@
 import { createInterface } from 'node:readline';
 import { Logger, redact } from '@reaatech/tool-use-firewall-core';
-import type { ApprovalRequest, ApproverGroup, ApprovalResult } from './types.js';
+import type { ApprovalRequest, ApprovalResult, ApproverGroup } from './types.js';
 
 export interface CLIApproverConfig {
   prompt?: string;

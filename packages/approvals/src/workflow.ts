@@ -1,8 +1,8 @@
 import { randomUUID } from 'node:crypto';
-import type { ApprovalRequest, ApprovalResult, ApproverGroup } from './types.js';
+import type { ApprovalConfig } from '@reaatech/tool-use-firewall-config';
 import type { RequestContext } from '@reaatech/tool-use-firewall-core';
 import { ApprovalRequiredError, Logger } from '@reaatech/tool-use-firewall-core';
-import type { ApprovalConfig } from '@reaatech/tool-use-firewall-config';
+import type { ApprovalRequest, ApprovalResult, ApproverGroup } from './types.js';
 
 export class ApprovalWorkflow {
   private pendingApprovals = new Map<string, ApprovalRequest>();

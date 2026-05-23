@@ -1,4 +1,4 @@
-import { createWriteStream, type WriteStream } from 'node:fs';
+import { type WriteStream, createWriteStream } from 'node:fs';
 
 export type LogLevel = 'debug' | 'info' | 'warn' | 'error';
 
@@ -39,9 +39,9 @@ export class Logger {
       ...(meta ? { meta } : {}),
     };
     const line = JSON.stringify(entry);
-    process.stderr.write(line + '\n');
+    process.stderr.write(`${line}\n`);
     if (this.fileStream) {
-      this.fileStream.write(line + '\n');
+      this.fileStream.write(`${line}\n`);
     }
   }
 }

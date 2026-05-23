@@ -1,8 +1,8 @@
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
-import { parse } from 'yaml';
-import { policyConfigSchema, type PolicyConfig } from './schema.js';
 import { ValidationError } from '@reaatech/tool-use-firewall-core';
+import { parse } from 'yaml';
+import { type PolicyConfig, policyConfigSchema } from './schema.js';
 
 export function loadPolicyConfig(path: string): PolicyConfig {
   const absolutePath = resolve(path);

@@ -1,28 +1,28 @@
 import { spawn } from 'node:child_process';
 import type { ChildProcess } from 'node:child_process';
 import { randomUUID } from 'node:crypto';
-import { createInterface } from 'node:readline';
-import { z } from 'zod';
 import type { Server as HttpServer } from 'node:http';
+import { createInterface } from 'node:readline';
+import { ApprovalWorkflow, createApprovalApi } from '@reaatech/tool-use-firewall-approvals';
+import { AuditLogger } from '@reaatech/tool-use-firewall-audit';
+import { type PolicyConfig, loadPolicyConfig } from '@reaatech/tool-use-firewall-config';
 import {
-  createRequestContext,
-  type RequestContext,
   ApprovalRequiredError,
   FirewallError,
-  RateLimitError,
   Logger,
+  RateLimitError,
+  type RequestContext,
+  createRequestContext,
   redact,
 } from '@reaatech/tool-use-firewall-core';
-import { loadPolicyConfig, type PolicyConfig } from '@reaatech/tool-use-firewall-config';
 import {
+  ArgumentValidator,
+  CostTracker,
   PolicyEngine,
   RateLimiter,
-  CostTracker,
-  ArgumentValidator,
   ReadOnlyCheck,
 } from '@reaatech/tool-use-firewall-policies';
-import { AuditLogger } from '@reaatech/tool-use-firewall-audit';
-import { ApprovalWorkflow, createApprovalApi } from '@reaatech/tool-use-firewall-approvals';
+import { z } from 'zod';
 import { InterceptorPipeline } from './interceptor.js';
 
 const MAX_SESSION_ID_LENGTH = 128;
@@ -345,7 +345,7 @@ export class MCPProxyServer {
   private forwardToUpstream(line: string): void {
     if (!this.upstreamProcess?.stdin) return;
     try {
-      this.upstreamProcess.stdin.write(line + '\n');
+      this.upstreamProcess.stdin.write(`${line}\n`);
     } catch (error) {
       this.logger.error('Failed to write to upstream stdin', {
         error: error instanceof Error ? error.message : String(error),
@@ -389,7 +389,7 @@ export class MCPProxyServer {
       });
 
       try {
-        this.upstreamProcess?.stdin?.write(modifiedLine + '\n');
+        this.upstreamProcess?.stdin?.write(`${modifiedLine}\n`);
       } catch (error) {
         clearTimeout(timeout);
         this.pendingResponses.delete(id);
@@ -404,7 +404,7 @@ export class MCPProxyServer {
 
   private sendToAgent(message: unknown): void {
     try {
-      process.stdout.write(JSON.stringify(message) + '\n');
+      process.stdout.write(`${JSON.stringify(message)}\n`);
     } catch (error) {
       this.logger.error('Failed to write to agent stdout', {
         error: error instanceof Error ? error.message : String(error),

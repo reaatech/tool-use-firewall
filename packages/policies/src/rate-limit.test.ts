@@ -1,6 +1,6 @@
-import { describe, it, expect } from 'vitest';
-import { TokenBucket, RateLimiter } from './rate-limit.js';
 import { createRequestContext } from '@reaatech/tool-use-firewall-core';
+import { describe, expect, it } from 'vitest';
+import { RateLimiter, TokenBucket } from './rate-limit.js';
 
 describe('TokenBucket', () => {
   it('allows consuming within capacity', () => {
@@ -22,7 +22,9 @@ describe('RateLimiter', () => {
       global: { requests_per_minute: 1000, burst_capacity: 100 },
     });
     const ctx = createRequestContext({
-      requestId: '1', sessionId: 's1', method: 'tools/call',
+      requestId: '1',
+      sessionId: 's1',
+      method: 'tools/call',
     });
     const result = await limiter.execute(ctx);
     expect(result.action).toBe('CONTINUE');
@@ -33,7 +35,9 @@ describe('RateLimiter', () => {
       global: { requests_per_minute: 1, burst_capacity: 1 },
     });
     const ctx = createRequestContext({
-      requestId: '1', sessionId: 's1', method: 'tools/call',
+      requestId: '1',
+      sessionId: 's1',
+      method: 'tools/call',
     });
     await limiter.execute(ctx);
     await expect(limiter.execute(ctx)).rejects.toThrow('Global rate limit exceeded');

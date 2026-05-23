@@ -1,5 +1,5 @@
-import type { RequestContext } from '@reaatech/tool-use-firewall-core';
 import type { PolicyConfig, Rule, RuleCondition } from '@reaatech/tool-use-firewall-config';
+import type { RequestContext } from '@reaatech/tool-use-firewall-core';
 import { globToRegex, safeRegExp } from '@reaatech/tool-use-firewall-core';
 
 export interface EvaluationResult {

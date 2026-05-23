@@ -1,4 +1,8 @@
-import type { RequestContext, Middleware, InterceptorResponse } from '@reaatech/tool-use-firewall-core';
+import type {
+  InterceptorResponse,
+  Middleware,
+  RequestContext,
+} from '@reaatech/tool-use-firewall-core';
 
 export class InterceptorPipeline {
   private middlewares: Middleware[] = [];

@@ -1,5 +1,11 @@
-import { Logger, DEFAULT_REDACTION_PATTERNS, redact, safeRegExp, type RedactionPattern } from '@reaatech/tool-use-firewall-core';
 import type { AuditConfig } from '@reaatech/tool-use-firewall-config';
+import {
+  DEFAULT_REDACTION_PATTERNS,
+  Logger,
+  type RedactionPattern,
+  redact,
+  safeRegExp,
+} from '@reaatech/tool-use-firewall-core';
 
 export type AuditDecision = 'ALLOW' | 'BLOCK' | 'APPROVAL_REQUIRED';
 

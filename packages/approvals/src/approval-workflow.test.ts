@@ -1,11 +1,19 @@
-import { describe, it, expect } from 'vitest';
-import { ApprovalWorkflow } from './workflow.js';
 import { createRequestContext } from '@reaatech/tool-use-firewall-core';
+import { describe, expect, it } from 'vitest';
+import { ApprovalWorkflow } from './workflow.js';
 
 describe('ApprovalWorkflow', () => {
   it('creates pending approval', async () => {
-    const workflow = new ApprovalWorkflow({ default_timeout_ms: 60000, max_pending_approvals: 1000 });
-    const ctx = createRequestContext({ requestId: '1', sessionId: 's1', method: 'tools/call', toolName: 'dangerous_tool' });
+    const workflow = new ApprovalWorkflow({
+      default_timeout_ms: 60000,
+      max_pending_approvals: 1000,
+    });
+    const ctx = createRequestContext({
+      requestId: '1',
+      sessionId: 's1',
+      method: 'tools/call',
+      toolName: 'dangerous_tool',
+    });
     try {
       await workflow.requestApproval(ctx);
     } catch (e: unknown) {
@@ -15,8 +23,17 @@ describe('ApprovalWorkflow', () => {
   });
 
   it('approves a pending request', async () => {
-    const workflow = new ApprovalWorkflow({ required_for: [{ tools: ['dangerous_tool'], approvers: ['admin'], min_approvals: 1 }], default_timeout_ms: 60000, max_pending_approvals: 1000 });
-    const ctx = createRequestContext({ requestId: '1', sessionId: 's1', method: 'tools/call', toolName: 'dangerous_tool' });
+    const workflow = new ApprovalWorkflow({
+      required_for: [{ tools: ['dangerous_tool'], approvers: ['admin'], min_approvals: 1 }],
+      default_timeout_ms: 60000,
+      max_pending_approvals: 1000,
+    });
+    const ctx = createRequestContext({
+      requestId: '1',
+      sessionId: 's1',
+      method: 'tools/call',
+      toolName: 'dangerous_tool',
+    });
     try {
       await workflow.requestApproval(ctx);
     } catch (e: unknown) {

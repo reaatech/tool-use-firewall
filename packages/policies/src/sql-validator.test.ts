@@ -1,14 +1,10 @@
-import { describe, it, expect } from 'vitest';
+import { describe, expect, it } from 'vitest';
 import { SQLValidator } from './sql-validator.js';
 
 describe('SQLValidator', () => {
   const config = {
-    blocked_patterns: [
-      { pattern: 'DROP\\s+TABLE', message: 'DROP TABLE is not allowed' },
-    ],
-    injection_patterns: [
-      { pattern: 'OR\\s+1\\s*=\\s*1', message: 'SQL injection detected' },
-    ],
+    blocked_patterns: [{ pattern: 'DROP\\s+TABLE', message: 'DROP TABLE is not allowed' }],
+    injection_patterns: [{ pattern: 'OR\\s+1\\s*=\\s*1', message: 'SQL injection detected' }],
     require_where_clause: ['DELETE', 'UPDATE'],
   };
 

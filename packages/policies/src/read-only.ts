@@ -1,5 +1,9 @@
 import { timingSafeEqual } from 'node:crypto';
-import type { RequestContext, Middleware, MiddlewareResult } from '@reaatech/tool-use-firewall-core';
+import type {
+  Middleware,
+  MiddlewareResult,
+  RequestContext,
+} from '@reaatech/tool-use-firewall-core';
 import { PolicyViolationError } from '@reaatech/tool-use-firewall-core';
 import { safeRegExp } from '@reaatech/tool-use-firewall-core';
 
