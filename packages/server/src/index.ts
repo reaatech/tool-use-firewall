@@ -1,7 +1,6 @@
 export { MCPProxyServer } from './server.js';
 export { InterceptorPipeline } from './interceptor.js';
 
-// Re-export all public APIs from other packages for a unified entry point
 export {
   FirewallError,
   PolicyViolationError,
@@ -31,15 +30,30 @@ export {
   loadPolicyConfig,
   policyConfigSchema,
   exceptionConditionSchema,
+  conditionGroupSchema,
+  timeWindowSchema,
+  upstreamBackendSchema,
+  metricsConfigSchema,
+  secretScanConfigSchema,
+  anomalyConfigSchema,
   type PolicyConfig,
   type Rule,
   type RuleCondition,
+  type ConditionGroup,
+  type TimeWindow,
   type ExceptionCondition,
   type ValidationRule,
+  type SchemaValidationRule,
   type RateLimitConfig,
   type CostConfig,
   type ApprovalConfig,
+  type ApproverGroupConfig,
+  type AutoApprovalConfig,
   type AuditConfig,
+  type UpstreamBackend,
+  type MetricsConfig,
+  type SecretScanConfig,
+  type AnomalyConfig,
 } from '@reaatech/tool-use-firewall-config';
 
 export {
@@ -50,6 +64,9 @@ export {
   ArgumentValidator,
   SQLValidator,
   ReadOnlyCheck,
+  SchemaValidator,
+  SecretScanner,
+  AnomalyDetector,
   type EvaluationResult,
   type ValidationResult,
   type ValidatorFn,
@@ -62,11 +79,15 @@ export {
   createApprovalApi,
   CLIApprover,
   WebhookApprover,
+  SlackApprover,
+  DiscordApprover,
   type ApprovalRequest,
   type ApprovalResult,
   type ApproverGroup,
   type CLIApproverConfig,
   type WebhookApproverConfig,
+  type SlackApproverConfig,
+  type DiscordApproverConfig,
 } from '@reaatech/tool-use-firewall-approvals';
 
 export {

@@ -10,3 +10,5 @@ export { ApprovalWorkflow } from './workflow.js';
 export { createApprovalApi } from './api.js';
 export { CLIApprover, type CLIApproverConfig } from './cli-approver.js';
 export { WebhookApprover, type WebhookApproverConfig } from './webhook-approver.js';
+export { SlackApprover, type SlackApproverConfig } from './slack-approver.js';
+export { DiscordApprover, type DiscordApproverConfig } from './discord-approver.js';
