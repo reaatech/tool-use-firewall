@@ -1,6 +1,6 @@
-import { describe, it, expect, vi } from 'vitest';
+import { describe, it, expect } from 'vitest';
 import { InterceptorPipeline } from './interceptor.js';
-import { createRequestContext, type Middleware } from '@reaatech/tool-use-firewall-core';
+import { createRequestContext } from '@reaatech/tool-use-firewall-core';
 
 describe('InterceptorPipeline', () => {
   it('allows when all middlewares return CONTINUE', async () => {

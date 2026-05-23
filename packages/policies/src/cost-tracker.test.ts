@@ -7,6 +7,7 @@ describe('CostTracker', () => {
     const tracker = new CostTracker({
       session_budget: 100,
       tool_costs: { expensive_tool: 10 },
+      budget_action: 'block',
     });
     const ctx = createRequestContext({
       requestId: '1', sessionId: 's1', method: 'tools/call', toolName: 'expensive_tool',
@@ -20,6 +21,7 @@ describe('CostTracker', () => {
     const tracker = new CostTracker({
       session_budget: 5,
       tool_costs: { expensive_tool: 10 },
+      budget_action: 'block',
     });
     const ctx = createRequestContext({
       requestId: '1', sessionId: 's1', method: 'tools/call', toolName: 'expensive_tool',

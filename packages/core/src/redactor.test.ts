@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { redact, DEFAULT_REDACTION_PATTERNS } from './redactor.js';
+import { redact } from './redactor.js';
 
 describe('redact', () => {
   it('returns null/undefined as-is', () => {
