@@ -43,30 +43,50 @@ jobs:
       - name: Build packages
         run: pnpm build
 
-      - name: Create release PR or publish to npm
+      - name: Create release PR
         id: changesets
         uses: changesets/action@v1
         with:
-          publish: pnpm release
           version: pnpm version-packages
           commit: 'chore(release): version packages'
           title: 'chore(release): version packages'
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Publish to npm
+        id: publish
+        env:
           NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
           NPM_CONFIG_PROVENANCE: 'true'
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          # Only publish on release version commits
+          COMMIT_MSG=$(git log -1 --format='%s')
+          if echo "$COMMIT_MSG" | grep -qE '^chore\(release\): version packages'; then
+            echo "Release commit detected — publishing to npm"
+            echo "//registry.npmjs.org/:_authToken=${NPM_TOKEN}" >> ~/.npmrc
+            pnpm release
+            echo "published=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "Not a release commit — skipping publish"
+            echo "published=false" >> "$GITHUB_OUTPUT"
+          fi
 
       - name: Mirror published packages to GitHub Packages
-        if: steps.changesets.outputs.published == 'true'
+        if: steps.publish.outputs.published == 'true'
         env:
           NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          PUBLISHED_PACKAGES: ${{ steps.changesets.outputs.publishedPackages }}
         run: |
           cat > .npmrc <<EOF
           @reaatech:registry=https://npm.pkg.github.com
           //npm.pkg.github.com/:_authToken=${NODE_AUTH_TOKEN}
           EOF
-          echo "$PUBLISHED_PACKAGES" | jq -r '.[].name' | while read -r name; do
+          for name in $(node -e "
+            const {execSync} = require('child_process');
+            const tags = execSync('git tag --points-at HEAD').toString().trim().split('\n').filter(Boolean);
+            const pkgs = tags.filter(t => t.startsWith('@reaatech/'));
+            pkgs.forEach(p => console.log(p.split('@')[0] + '@' + p.split('@')[1]));
+          "); do
             dir="packages/${name#@reaatech/tool-use-firewall-}"
             echo "Mirroring $name -> $dir"
             (cd "$dir" && npm publish --registry=https://npm.pkg.github.com)
