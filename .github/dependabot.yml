@@ -11,8 +11,8 @@ updates:
     allow:
       - dependency-type: "direct"
         update-types:
-          - "major"
-          - "patch"
+          - "version-update:semver-major"
+          - "version-update:semver-patch"
     groups:
       production-deps:
         dependency-type: "production"
