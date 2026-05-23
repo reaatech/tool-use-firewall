@@ -20,7 +20,14 @@
     "version-packages": "changeset version",
     "release": "turbo run build && changeset publish"
   },
-  "keywords": ["mcp", "firewall", "ai-agent", "policy", "security", "proxy"],
+  "keywords": [
+    "mcp",
+    "firewall",
+    "ai-agent",
+    "policy",
+    "security",
+    "proxy"
+  ],
   "author": "Rick Somers <rick@reaatech.com> (https://reaatech.com)",
   "license": "MIT",
   "packageManager": "pnpm@10.22.0",

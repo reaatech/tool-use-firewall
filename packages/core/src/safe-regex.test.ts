@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { UnsafeRegexError, globToRegex, isSafeRegex, safeRegExp } from './safe-regex.js';
+import { globToRegex, isSafeRegex, safeRegExp, UnsafeRegexError } from './safe-regex.js';
 
 describe('isSafeRegex', () => {
   it('accepts simple patterns', () => {

@@ -10,9 +10,13 @@
     "directory": "packages/audit"
   },
   "homepage": "https://github.com/reaatech/tool-use-firewall/tree/main/packages/audit#readme",
-  "bugs": { "url": "https://github.com/reaatech/tool-use-firewall/issues" },
+  "bugs": {
+    "url": "https://github.com/reaatech/tool-use-firewall/issues"
+  },
   "type": "module",
-  "engines": { "node": ">=20.0.0" },
+  "engines": {
+    "node": ">=20.0.0"
+  },
   "main": "./dist/index.cjs",
   "module": "./dist/index.js",
   "types": "./dist/index.d.ts",
@@ -23,7 +27,9 @@
       "require": "./dist/index.cjs"
     }
   },
-  "files": ["dist"],
+  "files": [
+    "dist"
+  ],
   "keywords": [
     "mcp",
     "firewall",
@@ -35,7 +41,9 @@
     "redaction",
     "compliance"
   ],
-  "publishConfig": { "access": "public" },
+  "publishConfig": {
+    "access": "public"
+  },
   "scripts": {
     "build": "tsup",
     "test": "vitest run",
