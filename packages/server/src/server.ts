@@ -1,5 +1,5 @@
-import { spawn } from 'node:child_process';
 import type { ChildProcess } from 'node:child_process';
+import { spawn } from 'node:child_process';
 import { randomUUID } from 'node:crypto';
 import { watch } from 'node:fs';
 import type { Server as HttpServer } from 'node:http';
@@ -9,23 +9,23 @@ import {
   ApprovalWorkflow,
   type ApproverGroup,
   createApprovalApi,
+  DiscordApprover,
+  SlackApprover,
 } from '@reaatech/tool-use-firewall-approvals';
-import { SlackApprover } from '@reaatech/tool-use-firewall-approvals';
-import { DiscordApprover } from '@reaatech/tool-use-firewall-approvals';
 import { AuditLogger } from '@reaatech/tool-use-firewall-audit';
 import {
   type ApproverGroupConfig,
+  loadPolicyConfig,
   type PolicyConfig,
   type UpstreamBackend,
-  loadPolicyConfig,
 } from '@reaatech/tool-use-firewall-config';
 import {
   ApprovalRequiredError,
+  createRequestContext,
   FirewallError,
   Logger,
   RateLimitError,
   type RequestContext,
-  createRequestContext,
   redact,
 } from '@reaatech/tool-use-firewall-core';
 import {

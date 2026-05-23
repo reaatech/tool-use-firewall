@@ -10,9 +10,13 @@
     "directory": "packages/policies"
   },
   "homepage": "https://github.com/reaatech/tool-use-firewall/tree/main/packages/policies#readme",
-  "bugs": { "url": "https://github.com/reaatech/tool-use-firewall/issues" },
+  "bugs": {
+    "url": "https://github.com/reaatech/tool-use-firewall/issues"
+  },
   "type": "module",
-  "engines": { "node": ">=20.0.0" },
+  "engines": {
+    "node": ">=20.0.0"
+  },
   "main": "./dist/index.cjs",
   "module": "./dist/index.js",
   "types": "./dist/index.d.ts",
@@ -23,7 +27,9 @@
       "require": "./dist/index.cjs"
     }
   },
-  "files": ["dist"],
+  "files": [
+    "dist"
+  ],
   "keywords": [
     "mcp",
     "firewall",
@@ -35,7 +41,9 @@
     "cost-tracking",
     "sql-validation"
   ],
-  "publishConfig": { "access": "public" },
+  "publishConfig": {
+    "access": "public"
+  },
   "scripts": {
     "build": "tsup",
     "test": "vitest run",
@@ -50,6 +58,6 @@
     "@types/node": "^25.8.0",
     "tsup": "^8.4.0",
     "typescript": "^5.8.3",
-    "vitest": "^3.1.1"
+    "vitest": "^4.1.7"
   }
 }

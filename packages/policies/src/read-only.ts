@@ -5,8 +5,7 @@ import type {
   MiddlewareResult,
   RequestContext,
 } from '@reaatech/tool-use-firewall-core';
-import { PolicyViolationError } from '@reaatech/tool-use-firewall-core';
-import { safeRegExp } from '@reaatech/tool-use-firewall-core';
+import { PolicyViolationError, safeRegExp } from '@reaatech/tool-use-firewall-core';
 
 interface ReadOnlyException {
   tools?: string[];
