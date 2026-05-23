@@ -1,9 +1,22 @@
 import { randomUUID } from 'node:crypto';
 import type { ApprovalConfig } from '@reaatech/tool-use-firewall-config';
 import type { RequestContext } from '@reaatech/tool-use-firewall-core';
-import { ApprovalRequiredError, Logger } from '@reaatech/tool-use-firewall-core';
+import { Logger } from '@reaatech/tool-use-firewall-core';
 import type { ApprovalRequest, ApprovalResult, ApproverGroup } from './types.js';
 
+/** Manages human-in-the-loop approval requests for tool calls that require
+ * authorization before execution. Supports multi-level approval chains with
+ * configurable approver groups and minimum approval counts.
+ *
+ * @example
+ * ```ts
+ * const workflow = new ApprovalWorkflow(config.approvals);
+ * const approvalId = await workflow.requestApproval(context);
+ * // ... later, via the HTTP API or CLI ...
+ * const result = await workflow.approve(approvalId, 'alice', 'security-team');
+ * console.log(result.status); // 'APPROVED' or 'PENDING'
+ * ```
+ */
 export class ApprovalWorkflow {
   private pendingApprovals = new Map<string, ApprovalRequest>();
   private approverGroups = new Map<string, ApproverGroup>();
@@ -28,7 +41,7 @@ export class ApprovalWorkflow {
     }
   }
 
-  async requestApproval(context: RequestContext): Promise<never> {
+  async requestApproval(context: RequestContext): Promise<string> {
     const approvalId = this.generateId();
     const rule = this.findMatchingRule(context);
 
@@ -57,15 +70,7 @@ export class ApprovalWorkflow {
     this.pendingApprovals.set(approvalId, request);
     await this.notifyApprovers(request);
 
-    throw new ApprovalRequiredError({
-      message: `Operation requires approval from: ${requiredApprovers.join(', ')}`,
-      requestId: context.requestId,
-      approvalId,
-      details: {
-        expiresAt: request.expiresAt,
-        requiredApprovers,
-      },
-    });
+    return approvalId;
   }
 
   async approve(

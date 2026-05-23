@@ -31,7 +31,7 @@ The **tool-use-firewall** is an MCP (Model Context Protocol) proxy server that i
 Every incoming request is wrapped in a `RequestContext` that flows through the entire pipeline:
 
 ```typescript
-// src/middleware/context.ts
+// packages/core/src/types.ts
 export interface RequestContext {
   // Request identity
   requestId: string;        // UUID for this specific request
@@ -62,7 +62,7 @@ The transport layer handles communication with both the AI agent (downstream) an
 
 **MCP is stdio-first.** The current implementation spawns the upstream MCP
 server as a child process and proxies JSON-RPC over stdin/stdout (see
-`src/server.ts`). HTTP/SSE and WebSocket transports are on the roadmap but not
+`packages/server/src/server.ts`). HTTP/SSE and WebSocket transports are on the roadmap but not
 yet implemented.
 
 #### Supported Transports
@@ -91,20 +91,16 @@ The firewall is a full MCP protocol proxy. It does not merely proxy `tools/call`
 The `tools/list` response is cached so the firewall knows available tool names and schemas for validation and logging. All other methods are passed through transparently, though future phases may add URI validation for resources.
 
 ```typescript
-// src/server.ts
+// packages/server/src/server.ts
 export class MCPProxyServer {
-  async handleMessage(message: JSONRPCMessage): Promise<void> {
-    switch (message.method) {
-      case 'tools/call':
-        return this.handleToolCall(message);
-      case 'tools/list':
-        const tools = await this.forwardToUpstream(message);
-        this.toolCache.update(tools);
-        return tools;
-      default:
-        return this.forwardToUpstream(message);
-    }
+  async start(): Promise<void> {
+    this.policyConfig = loadPolicyConfig(this.options.policyPath);
+    this.buildPipeline(this.policyConfig);
+    this.startUpstream();
+    this.startStdioListener();
   }
+  // ... handleDownstreamMessage routes tools/call through pipeline,
+  //     other methods pass through directly to upstream
 }
 ```
 
@@ -117,19 +113,19 @@ The interceptor pipeline is the heart of the firewall. Every tool call passes th
 │   Request    │───▶│    Rate      │───▶│    Cost      │───▶│  Argument    │
 │   Parser     │    │   Limiter    │    │   Tracker    │    │  Validator   │
 └──────────────┘    └──────────────┘    └──────────────┘    └──────────────┘
-                                                                  │
-                                                                  ▼
+                                                                   │
+                                                                   ▼
 ┌──────────────┐    ┌──────────────┐    ┌──────────────┐    ┌──────────────┐
-│   Audit      │◀───│   Approval   │◀───│   Read-Only  │◀───│   Custom     │
+│   Audit      │    │   Approval   │    │   Read-Only  │    │   Custom     │
 │   Logger     │    │   Workflow   │    │    Check     │    │   Rules      │
 └──────────────┘    └──────────────┘    └──────────────┘    └──────────────┘
-                                                                  │
-                                                                  ▼
-                                                           ┌──────────────┐
-                                                           │   Upstream   │
-                                                           │    MCP       │
-                                                           │   Server     │
-                                                           └──────────────┘
+       ▲                                                            │
+       │                                                            ▼
+       └─────────────────────────────────────────────────┌──────────────┐
+                                          (logs every    │   Upstream   │
+                                           decision)     │    MCP       │
+                                                         │   Server     │
+                                                         └──────────────┘
 ```
 
 **Pipeline stages (in order):**
@@ -138,31 +134,29 @@ The interceptor pipeline is the heart of the firewall. Every tool call passes th
 3. **Argument Validator** — Schema and regex validation on arguments
 4. **Custom Rules Engine** — YAML-defined allow/block/approval rules
 5. **Read-Only Check** — Blocks write operations when enabled
-6. **Approval Workflow** — Human-in-the-loop for high-risk operations
-7. **Audit Logger** — Records the final decision and forwards/returns
+6. **Approval Workflow** — Creates approval request, returns `approvalId` to the agent (async)
+7. **Audit Logger** — Records every decision (block, allow, approval) with full context
 
-Each middleware can return `CONTINUE`, `BLOCK`, or `APPROVAL_REQUIRED`. On `BLOCK`, the pipeline short-circuits and returns an error. On `APPROVAL_REQUIRED`, execution pauses until approved.
+Each middleware can return `CONTINUE`, `BLOCK`, or `APPROVAL_REQUIRED`. On `BLOCK`, the pipeline short-circuits and returns an error. On `APPROVAL_REQUIRED`, an approval request is created and the agent receives an `approval_id` to track the outcome (approval happens asynchronously via the HTTP API or CLI).
 
 ```typescript
-// src/middleware/interceptor.ts
+// packages/server/src/interceptor.ts
 export class InterceptorPipeline {
   private middlewares: Middleware[] = [];
   
-  async process(context: RequestContext): Promise<ToolResponse> {
+  async process(context: RequestContext): Promise<InterceptorResponse> {
+    const accumulated: Record<string, unknown> = {};
     for (const middleware of this.middlewares) {
       const result = await middleware.execute(context);
+      if (result.metadata) Object.assign(accumulated, result.metadata);
       if (result.action === 'BLOCK') {
-        return this.createBlockResponse(context, result.reason);
+        return { allowed: false, action: 'BLOCK', reason: result.reason, metadata: accumulated };
       }
       if (result.action === 'APPROVAL_REQUIRED') {
-        return await this.handleApproval(context, result);
+        return { allowed: false, action: 'APPROVAL_REQUIRED', reason: result.reason, metadata: accumulated };
       }
     }
-    
-    // All checks passed, forward to upstream
-    const response = await this.forwardToUpstream(context);
-    await this.audit('ALLOWED', context, response);
-    return response;
+    return { allowed: true, action: 'CONTINUE', metadata: accumulated };
   }
 }
 ```
@@ -172,36 +166,32 @@ export class InterceptorPipeline {
 The policy engine evaluates all configured rules against incoming requests.
 
 ```typescript
-// src/policies/engine.ts
-export interface Policy {
-  id: string;
-  name: string;
-  description?: string;
-  rules: Rule[];
-  defaults: DefaultBehavior;
-}
-
-export interface Rule {
-  id: string;
-  type: RuleType;
-  tools?: string[];        // Tool name patterns
-  conditions: Condition[];
-  action: RuleAction;
-  priority: number;
-}
-
+// packages/policies/src/engine.ts
 export class PolicyEngine {
-  async evaluate(context: RequestContext, policy: Policy): Promise<EvaluationResult> {
-    const applicableRules = this.getApplicableRules(context, policy);
+  private readonly rules: Rule[];
+  private readonly defaultAction: 'ALLOW' | 'BLOCK';
+
+  constructor(config: PolicyConfig) {
+    this.rules = [...config.rules].sort((a, b) => b.priority - a.priority);
+    this.defaultAction = config.settings?.default_action?.toUpperCase() === 'ALLOW'
+      ? 'ALLOW' : 'BLOCK';
+  }
+
+  async evaluate(context: RequestContext): Promise<EvaluationResult> {
+    const applicableRules = this.getApplicableRules(context);
     
-    for (const rule of applicableRules.sort((a, b) => b.priority - a.priority)) {
+    for (const rule of applicableRules) {
       const matches = await this.evaluateConditions(rule.conditions, context);
       if (matches) {
-        return { action: rule.action, rule };
+        return {
+          action: rule.type.toUpperCase() as EvaluationResult['action'],
+          rule,
+          reason: rule.description ?? `Matched rule: ${rule.id}`,
+        };
       }
     }
     
-    return { action: policy.defaults.action };
+    return { action: this.defaultAction };
   }
 }
 ```
@@ -211,7 +201,7 @@ export class PolicyEngine {
 Token bucket algorithm implementation for rate limiting.
 
 ```typescript
-// src/policies/rate-limit.ts
+// packages/policies/src/rate-limit.ts
 export class TokenBucketRateLimiter {
   private buckets: Map<string, TokenBucket> = new Map();
   
@@ -235,7 +225,7 @@ export class TokenBucketRateLimiter {
 Tracks and enforces cost budgets per session.
 
 ```typescript
-// src/policies/cost-tracker.ts
+// packages/policies/src/cost-tracker.ts
 export class CostTracker {
   private sessions: Map<string, SessionCost> = new Map();
   
@@ -258,7 +248,7 @@ export class CostTracker {
 Validates tool arguments against security rules.
 
 ```typescript
-// src/policies/validator.ts
+// packages/policies/src/validator.ts
 export class ArgumentValidator {
   private validators: Map<string, ValidatorFn> = new Map();
   
@@ -319,11 +309,12 @@ Manages human-in-the-loop approval processes. See `src/approvals/workflow.ts`
 for the full implementation; the snippet below is illustrative.
 
 ```typescript
-// Illustrative — see src/approvals/workflow.ts
+// See packages/approvals/src/workflow.ts
 export class ApprovalWorkflow {
   private pendingApprovals: Map<string, PendingApproval> = new Map();
   
-  async requestApproval(context: RequestContext): Promise<ApprovalResult> {
+  // Returns approvalId (does not throw — approval is async)
+  async requestApproval(context: RequestContext): Promise<string> {
     const approvalId = generateUUID();
     const pending: PendingApproval = {
       id: approvalId,
@@ -335,15 +326,8 @@ export class ApprovalWorkflow {
     };
     
     this.pendingApprovals.set(approvalId, pending);
-    
-    // Notify approvers
     await this.notifyApprovers(pending);
-    
-    return {
-      action: 'APPROVAL_REQUIRED',
-      approvalId,
-      message: pending.context.toolName + ' requires approval',
-    };
+    return approvalId;
   }
   
   async approve(approvalId: string, approverId: string, comment?: string): Promise<boolean> {
@@ -366,7 +350,7 @@ export class ApprovalWorkflow {
 
 ### 8. Audit Logger
 
-Comprehensive logging of all activities. See `src/audit/index.ts` for the
+Comprehensive logging of all activities. See `packages/audit/src/index.ts` for the
 full implementation; the snippet below is illustrative.
 
 ```typescript
@@ -467,28 +451,21 @@ export class AuditLogger {
 1. Policy Engine determines approval required
         │
         ▼
-2. Create PendingApproval record
+2. Create PendingApproval record, notify approvers
         │
         ▼
-3. Notify approvers via configured channels:
-   ├── CLI prompt (local)
-   ├── HTTP webhook (external system)
-   └── Email/Slack (if configured)
+3. Return approval_id to the AI agent (as error data)
         │
         ▼
-4. Wait for approval (with timeout)
+4. Approver action via HTTP API or CLI (out-of-band):
         │
    ┌────┴────┐
    ▼         ▼
 5a. Approve    5b. Deny / Timeout
    │            │
    ▼            ▼
-6a. Execute    6b. Return denial
-   tool        response
-   │            │
-   ▼            ▼
-7a. Audit      7b. Audit
-   approved       denied
+6a. Approval    6b. Denial
+   recorded       recorded
 ```
 
 ---
@@ -706,23 +683,12 @@ audit:
 
 ## API Reference
 
-### Configuration API
+### Approval API (implemented)
 
 ```typescript
-// Runtime configuration updates
-POST /api/v1/config/reload
-POST /api/v1/config/validate
+// Health check
+GET  /health
 
-// Policy management
-GET  /api/v1/policies
-POST /api/v1/policies
-PUT  /api/v1/policies/:id
-DELETE /api/v1/policies/:id
-```
-
-### Approval API
-
-```typescript
 // Pending approvals
 GET  /api/v1/approvals/pending
 GET  /api/v1/approvals/:id
@@ -730,31 +696,28 @@ GET  /api/v1/approvals/:id
 // Approval actions
 POST /api/v1/approvals/:id/approve
 POST /api/v1/approvals/:id/deny
-
-// Webhook callbacks
-POST /api/v1/webhooks/approval-callback
 ```
 
-### Audit API
+### Planned APIs (not yet implemented)
 
 ```typescript
-// Query audit logs
+// Configuration management (planned)
+POST /api/v1/config/reload
+POST /api/v1/config/validate
+
+// Policy management (planned)
+GET  /api/v1/policies
+POST /api/v1/policies
+PUT  /api/v1/policies/:id
+DELETE /api/v1/policies/:id
+
+// Audit query (planned)
 GET  /api/v1/audit/events?sessionId=xxx&toolName=xxx
 GET  /api/v1/audit/events/:id
-
-// Export audit data
 GET  /api/v1/audit/export?format=json&startDate=xxx&endDate=xxx
-```
 
-### Metrics API
-
-```typescript
-// Prometheus metrics
+// Metrics (planned)
 GET  /metrics
-
-// Health check
-GET  /health
-GET  /ready
 ```
 
 ---

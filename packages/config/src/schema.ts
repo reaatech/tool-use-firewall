@@ -10,6 +10,12 @@ export const ruleConditionSchema = z.object({
   lt: z.number().optional(),
 });
 
+export const exceptionConditionSchema = z.object({
+  argument: z.string().min(1),
+  pattern: z.string().min(1),
+  flags: z.string().optional(),
+});
+
 export const ruleSchema = z.object({
   id: z.string().min(1),
   type: z.enum(['allow', 'block', 'approval_required']),
@@ -135,7 +141,7 @@ export const policyConfigSchema = z.object({
     .array(
       z.object({
         tools: z.array(z.string()).optional(),
-        conditions: z.array(ruleConditionSchema).optional(),
+        conditions: z.array(exceptionConditionSchema),
       }),
     )
     .optional(),
@@ -156,6 +162,7 @@ export const policyConfigSchema = z.object({
 export type PolicyConfig = z.infer<typeof policyConfigSchema>;
 export type Rule = z.infer<typeof ruleSchema>;
 export type RuleCondition = z.infer<typeof ruleConditionSchema>;
+export type ExceptionCondition = z.infer<typeof exceptionConditionSchema>;
 export type ValidationRule = z.infer<typeof validationRuleSchema>;
 export type RateLimitConfig = z.infer<typeof rateLimitConfigSchema>;
 export type CostConfig = z.infer<typeof costConfigSchema>;

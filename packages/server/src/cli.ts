@@ -1,14 +1,15 @@
 #!/usr/bin/env node
-import { readFileSync } from 'node:fs';
-import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { MCPProxyServer } from './server.js';
+
+declare const __PACKAGE_VERSION__: string | undefined;
 
 const FIREWALL_FLAGS = new Set([
   '--config',
   '-c',
   '--upstream',
   '-u',
+  '--upstream-args',
   '--approval-port',
   '--help',
   '-h',
@@ -16,33 +17,30 @@ const FIREWALL_FLAGS = new Set([
   '-v',
 ]);
 
-function readVersion(): string {
-  try {
-    const here = dirname(fileURLToPath(import.meta.url));
-    const pkgPath = resolve(here, '..', 'package.json');
-    const pkg = JSON.parse(readFileSync(pkgPath, 'utf-8')) as { version?: string };
-    return pkg.version ?? 'unknown';
-  } catch {
-    return 'unknown';
-  }
+export function readVersion(): string {
+  return typeof __PACKAGE_VERSION__ === 'string' ? __PACKAGE_VERSION__ : 'unknown';
 }
 
-function showHelp(): void {
+export function showHelp(): void {
   console.error(`
 tool-use-firewall — Policy enforcement layer between AI agents and MCP servers
 
 Usage:
-  tool-use-firewall --config <path> --upstream <command> [-- <upstream-args...>]
+  tool-use-firewall --config <path> --upstream <command> [--upstream-args <args>] [-- <upstream-args...>]
 
 Options:
-  --config, -c       Path to policy YAML file (required)
-  --upstream, -u     Command to spawn the upstream MCP server (required)
-  --approval-port    Port for the approval HTTP API (optional)
-  --help, -h         Show this help message
-  --version, -v      Show version
+  --config, -c        Path to policy YAML file (required)
+  --upstream, -u      Command to spawn the upstream MCP server (required)
+  --upstream-args     Arguments to forward to the upstream server (space-separated string)
+  --approval-port     Port for the approval HTTP API (optional)
+  --help, -h          Show this help message
+  --version, -v       Show version
 
 Pass arguments to the upstream server after a literal "--":
   tool-use-firewall --config p.yaml --upstream node -- ./mcp-server.js --port 9000
+
+Or use the --upstream-args flag for scripted environments:
+  tool-use-firewall --config p.yaml --upstream node --upstream-args "./mcp-server.js --port 9000"
 `);
 }
 
@@ -53,7 +51,7 @@ interface ParsedArgs {
   approvalPort?: number;
 }
 
-function parseArgs(argv: string[]): ParsedArgs {
+export function parseArgs(argv: string[]): ParsedArgs {
   const args = [...argv];
   let configPath: string | undefined;
   let upstreamCommand: string | undefined;
@@ -80,6 +78,15 @@ function parseArgs(argv: string[]): ParsedArgs {
         if (FIREWALL_FLAGS.has(next)) break;
         upstreamArgs.push(args[++i]);
       }
+      continue;
+    }
+    if (arg === '--upstream-args') {
+      const raw = args[++i];
+      if (typeof raw !== 'string' || raw.length === 0) {
+        console.error('Error: --upstream-args requires a value');
+        process.exit(1);
+      }
+      upstreamArgs.push(...raw.split(/\s+/).filter(Boolean));
       continue;
     }
     if (arg === '--approval-port') {
@@ -145,7 +152,14 @@ async function main(): Promise<void> {
   await server.start();
 }
 
-main().catch((error) => {
-  console.error('Fatal error:', error);
-  process.exit(1);
-});
+const isMainModule =
+  typeof import.meta.url === 'string' &&
+  process.argv[1] !== undefined &&
+  fileURLToPath(import.meta.url) === process.argv[1];
+
+if (isMainModule) {
+  main().catch((error) => {
+    console.error('Fatal error:', error);
+    process.exit(1);
+  });
+}

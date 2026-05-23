@@ -45,6 +45,25 @@ interface ServerOptions {
   approvalPort?: number;
 }
 
+/** Proxy server that sits between an AI agent and an upstream MCP server.
+ *
+ * Intercepts every `tools/call` request through a configurable interceptor
+ * pipeline (rate limiting → cost tracking → validation → policy engine →
+ * read-only check → approval workflow) before forwarding allowed requests
+ * to the upstream server.
+ *
+ * @example
+ * ```ts
+ * const server = new MCPProxyServer({
+ *   policyPath: './policies/default.yaml',
+ *   upstreamCommand: 'node',
+ *   upstreamArgs: ['./my-mcp-server.js', '--port', '9000'],
+ *   approvalPort: 3001,
+ * });
+ * process.on('SIGINT', () => server.stop());
+ * await server.start();
+ * ```
+ */
 export class MCPProxyServer {
   private upstreamProcess?: ChildProcess;
   private policyConfig?: PolicyConfig;
@@ -117,7 +136,10 @@ export class MCPProxyServer {
       new ReadOnlyCheck({
         enabled: config.settings?.read_only ?? false,
         exceptions: config.read_only_exceptions,
-        bypassTokenEnv: config.emergency_override?.token_env,
+        bypassTokenEnv:
+          config.emergency_override?.enabled === true
+            ? config.emergency_override?.token_env
+            : undefined,
       }),
     );
 
@@ -249,7 +271,22 @@ export class MCPProxyServer {
 
       if (!result.allowed) {
         if (result.action === 'APPROVAL_REQUIRED' && this.approvalWorkflow) {
-          await this.approvalWorkflow.requestApproval(context);
+          const approvalId = await this.approvalWorkflow.requestApproval(context);
+          await this.auditLogger.log({
+            type: 'APPROVAL_REQUESTED',
+            sessionId: context.sessionId,
+            toolName: context.toolName,
+            arguments: redact(context.arguments) as Record<string, unknown> | undefined,
+            decision: 'APPROVAL_REQUIRED',
+            approvalId,
+            latency: Date.now() - startTime,
+            metadata: redact(result.metadata) as Record<string, unknown> | undefined,
+          });
+          this.sendErrorResponse(id, -32000, result.reason ?? 'Approval required', {
+            request_id: context.requestId,
+            approval_id: approvalId,
+          });
+          return;
         }
 
         await this.auditLogger.log({
@@ -369,16 +406,15 @@ export class MCPProxyServer {
         reject(new Error('Upstream timeout'));
       }, 30000);
 
-      let msg: Record<string, unknown>;
+      let originalMsg: Record<string, unknown>;
       try {
-        msg = JSON.parse(line);
+        originalMsg = JSON.parse(line);
       } catch {
         clearTimeout(timeout);
         reject(new Error('Invalid JSON'));
         return;
       }
-      msg.id = id;
-      const modifiedLine = JSON.stringify(msg);
+      const msg = { ...originalMsg, id };
 
       this.pendingResponses.set(id, (value: unknown) => {
         clearTimeout(timeout);
@@ -389,7 +425,7 @@ export class MCPProxyServer {
       });
 
       try {
-        this.upstreamProcess?.stdin?.write(`${modifiedLine}\n`);
+        this.upstreamProcess?.stdin?.write(`${JSON.stringify(msg)}\n`);
       } catch (error) {
         clearTimeout(timeout);
         this.pendingResponses.delete(id);

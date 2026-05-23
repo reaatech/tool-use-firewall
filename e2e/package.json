@@ -10,6 +10,7 @@
   "dependencies": {
     "@reaatech/tool-use-firewall-core": "workspace:*",
     "@reaatech/tool-use-firewall-config": "workspace:*",
+    "@reaatech/tool-use-firewall-policies": "workspace:*",
     "@reaatech/tool-use-firewall-server": "workspace:*"
   },
   "devDependencies": {

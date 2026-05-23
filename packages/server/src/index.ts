@@ -30,9 +30,11 @@ export {
 export {
   loadPolicyConfig,
   policyConfigSchema,
+  exceptionConditionSchema,
   type PolicyConfig,
   type Rule,
   type RuleCondition,
+  type ExceptionCondition,
   type ValidationRule,
   type RateLimitConfig,
   type CostConfig,
