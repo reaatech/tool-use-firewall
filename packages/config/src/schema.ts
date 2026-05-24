@@ -180,10 +180,10 @@ export const auditOutputSchema = z
         path: ['path'],
       });
     }
-    if (out.type === 'sidecar' && !out.endpoint) {
+    if (out.type === 'sidecar' && !out.endpoint && !out.path) {
       ctx.addIssue({
         code: 'custom',
-        message: 'audit output type "sidecar" requires an `endpoint` URL',
+        message: 'audit output type "sidecar" requires an `endpoint` URL and/or a `path`',
         path: ['endpoint'],
       });
     }

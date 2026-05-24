@@ -1,3 +1,4 @@
+import { type WriteStream, createWriteStream } from 'node:fs';
 import type { AuditConfig } from '@reaatech/tool-use-firewall-config';
 import {
   DEFAULT_REDACTION_PATTERNS,
@@ -7,11 +8,11 @@ import {
   safeRegExp,
 } from '@reaatech/tool-use-firewall-core';
 
-/** Abort an in-flight sidecar delivery after this long so a slow or
+/** Abort an in-flight sidecar HTTP delivery after this long so a slow or
  * unreachable aggregator never blocks audit logging indefinitely. */
 const SIDECAR_TIMEOUT_MS = 5000;
 
-interface SidecarTarget {
+interface SidecarHttpTarget {
   endpoint: string;
   apiKey?: string;
 }
@@ -42,7 +43,8 @@ export class AuditLogger {
   private readonly redactionEnabled: boolean;
   private readonly redactionPatterns?: RedactionPattern[];
   private readonly logger: Logger;
-  private readonly sidecarTargets: SidecarTarget[] = [];
+  private readonly sidecarHttpTargets: SidecarHttpTarget[] = [];
+  private readonly sidecarStreams: WriteStream[] = [];
 
   constructor(options: AuditLoggerOptions = {}) {
     const config = options.config;
@@ -72,11 +74,16 @@ export class AuditLogger {
         filePath = out.path;
       }
       if (out.type === 'sidecar') {
-        if (!out.endpoint) {
-          throw new Error('audit.output[sidecar] requires an `endpoint` URL');
+        if (!out.endpoint && !out.path) {
+          throw new Error('audit.output[sidecar] requires an `endpoint` URL and/or a `path`');
         }
-        const apiKey = out.api_key_env ? process.env[out.api_key_env] : undefined;
-        this.sidecarTargets.push({ endpoint: out.endpoint, apiKey });
+        if (out.endpoint) {
+          const apiKey = out.api_key_env ? process.env[out.api_key_env] : undefined;
+          this.sidecarHttpTargets.push({ endpoint: out.endpoint, apiKey });
+        }
+        if (out.path) {
+          this.sidecarStreams.push(createWriteStream(out.path, { flags: 'a' }));
+        }
       }
     }
     this.logger = new Logger('AuditLogger', filePath);
@@ -102,18 +109,31 @@ export class AuditLogger {
     const safeEvent = this.redactionEnabled ? redact(emitted, this.redactionPatterns) : emitted;
     this.logger.info('audit_event', safeEvent as unknown as Record<string, unknown>);
 
-    if (this.sidecarTargets.length > 0) {
+    if (this.sidecarHttpTargets.length > 0 || this.sidecarStreams.length > 0) {
       this.forwardToSidecars(safeEvent);
     }
   }
 
-  /** Best-effort delivery of an audit event to each configured sidecar
-   * endpoint. Fire-and-forget: failures are logged to stderr and never
-   * propagate, so a downed aggregator cannot break the proxy or add latency
-   * to the request that produced the event. */
+  /** Best-effort delivery of an audit event to each configured sidecar — an
+   * HTTP aggregator/SIEM endpoint, a local file, or both. Failures are logged
+   * to stderr and never propagate, so a downed aggregator (or a write error)
+   * cannot break the proxy or add latency to the request that produced the
+   * event. */
   private forwardToSidecars(event: unknown): void {
     const body = JSON.stringify(event);
-    for (const target of this.sidecarTargets) {
+
+    for (const stream of this.sidecarStreams) {
+      stream.write(`${body}\n`, (error) => {
+        if (error) {
+          this.logger.error('audit sidecar file write failed', {
+            path: stream.path.toString(),
+            error: error.message,
+          });
+        }
+      });
+    }
+
+    for (const target of this.sidecarHttpTargets) {
       const headers: Record<string, string> = { 'Content-Type': 'application/json' };
       if (target.apiKey) {
         headers.Authorization = `Bearer ${target.apiKey}`;

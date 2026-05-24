@@ -1,3 +1,6 @@
+import { mkdtempSync, readFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { type AuditEvent, AuditLogger } from './index.js';
 
@@ -21,7 +24,7 @@ describe('AuditLogger', () => {
     expect(logger).toBeInstanceOf(AuditLogger);
   });
 
-  it('throws when a sidecar output has no endpoint', () => {
+  it('throws when a sidecar output has neither endpoint nor path', () => {
     expect(
       () =>
         new AuditLogger({
@@ -113,4 +116,55 @@ describe('AuditLogger', () => {
     await logger.log(event);
     expect(fetchMock).not.toHaveBeenCalled();
   });
+
+  it('writes events to a sidecar file path (local fallback)', async () => {
+    const path = join(mkdtempSync(join(tmpdir(), 'tuf-audit-')), 'sidecar.log');
+    const logger = new AuditLogger({
+      silent: false,
+      config: { level: 'full', output: [{ type: 'sidecar', format: 'json', path }] },
+    });
+
+    await logger.log(event);
+
+    const content = await waitForFile(path);
+    expect(JSON.parse(content.trim()).type).toBe('REQUEST_BLOCKED');
+  });
+
+  it('supports a sidecar with both an endpoint and a path', async () => {
+    const fetchMock = vi.fn().mockResolvedValue({ ok: true, status: 200 });
+    vi.stubGlobal('fetch', fetchMock);
+    const path = join(mkdtempSync(join(tmpdir(), 'tuf-audit-')), 'sidecar.log');
+
+    const logger = new AuditLogger({
+      silent: false,
+      config: {
+        level: 'full',
+        output: [
+          { type: 'sidecar', format: 'json', endpoint: 'https://siem.example/ingest', path },
+        ],
+      },
+    });
+
+    await logger.log(event);
+
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    const content = await waitForFile(path);
+    expect(JSON.parse(content.trim()).type).toBe('REQUEST_BLOCKED');
+  });
 });
+
+/** Poll a file until it has content (the sidecar WriteStream flushes
+ * asynchronously), failing the test if nothing is written in time. */
+async function waitForFile(path: string, timeoutMs = 1000): Promise<string> {
+  const deadline = Date.now() + timeoutMs;
+  while (Date.now() < deadline) {
+    try {
+      const content = readFileSync(path, 'utf-8');
+      if (content.length > 0) return content;
+    } catch {
+      // file not created yet
+    }
+    await new Promise((resolve) => setTimeout(resolve, 10));
+  }
+  throw new Error(`sidecar file ${path} was not written within ${timeoutMs}ms`);
+}

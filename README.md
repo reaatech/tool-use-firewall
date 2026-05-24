@@ -92,7 +92,7 @@ Data flow details and state management: [ARCHITECTURE.md](./ARCHITECTURE.md)
 - **Structured JSON** — Every decision recorded with full context
 - **Sensitive data redaction** — API keys, tokens, emails automatically redacted
 - **Level control** — `none`, `summary`, or `full` verbosity
-- **File & sidecar output** — Log to a file (with rotation) and/or forward events over HTTP to a sidecar/SIEM endpoint (stdout is reserved for the MCP JSON-RPC stream)
+- **File & sidecar output** — Log to a file (with rotation) and/or forward events to a sidecar — an HTTP/SIEM endpoint, a local file, or both (stdout is reserved for the MCP JSON-RPC stream)
 
 ### Transports & Routing
 - **stdio & HTTP** — Run as a stdio proxy (default) or expose an HTTP transport
