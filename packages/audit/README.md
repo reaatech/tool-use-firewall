@@ -22,6 +22,7 @@ pnpm add @reaatech/tool-use-firewall-audit
 - **Configurable levels** — `none` (disabled), `summary` (minimal fields), `full` (complete request/response)
 - **Sensitive data redaction** — API keys, bearer tokens, emails, and custom patterns automatically redacted
 - **File output** — Optional file logging with rotation support (stdout is forbidden — it corrupts MCP streams)
+- **Sidecar output** — Optionally mirror events to a separate sidecar log stream alongside the file output
 - **Silent mode** — Suppresses output during testing via `NODE_ENV=test` or explicit `silent` option
 
 ## Quick Start

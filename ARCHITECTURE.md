@@ -60,16 +60,17 @@ export interface RequestContext {
 
 The transport layer handles communication with both the AI agent (downstream) and the upstream MCP server.
 
-**MCP is stdio-first.** The current implementation spawns the upstream MCP
-server as a child process and proxies JSON-RPC over stdin/stdout (see
-`packages/server/src/server.ts`). HTTP/SSE and WebSocket transports are on the roadmap but not
-yet implemented.
+**MCP is stdio-first.** The implementation spawns each upstream MCP server as a
+child process and proxies JSON-RPC over stdin/stdout (see
+`packages/server/src/server.ts`). An optional HTTP transport accepts JSON-RPC
+over POST and exposes a `/health` endpoint; WebSocket/SSE remain on the roadmap.
 
 #### Supported Transports
 - **Stdio** (implemented): Spawns the upstream MCP server as a child process and
   proxies JSON-RPC messages over stdin/stdout.
-- **HTTP/SSE** (planned).
-- **WebSocket** (planned).
+- **HTTP** (implemented): Enable via `transports.http` in the policy; accepts
+  JSON-RPC POST requests and serves `GET /health`.
+- **WebSocket / SSE** (planned).
 
 #### MCP Protocol Proxying
 
@@ -79,7 +80,7 @@ The firewall is a full MCP protocol proxy. It does not merely proxy `tools/call`
 |------------|----------------|
 | `initialize` | Pass through with capability negotiation |
 | `tools/list` | Pass through; cache tool schema for validation context |
-| `tools/call` | **Intercept** — run full interceptor pipeline |
+| `tools/call` | **Intercept** — run full interceptor pipeline (also intercepted per-element inside JSON-RPC batches) |
 | `resources/list` | Pass through (optionally filter by policy) |
 | `resources/read` | Pass through (optionally validate URI patterns) |
 | `resources/subscribe` | Pass through |
@@ -96,11 +97,15 @@ export class MCPProxyServer {
   async start(): Promise<void> {
     this.policyConfig = loadPolicyConfig(this.options.policyPath);
     this.buildPipeline(this.policyConfig);
-    this.startUpstream();
+    this.startPolicyWatcher();      // hot-reload on policy file changes
+    this.startApprovalServer(this.policyConfig);
+    await this.startUpstreams(this.policyConfig); // one or more upstreams
+    this.startMetricsServer(this.policyConfig);
+    this.startHttpTransport(this.policyConfig);
     this.startStdioListener();
   }
-  // ... handleDownstreamMessage routes tools/call through pipeline,
-  //     other methods pass through directly to upstream
+  // processFrame() handles a single message or a JSON-RPC batch (array);
+  // tools/call runs the pipeline, other methods pass through to the upstream.
 }
 ```
 
@@ -128,14 +133,18 @@ The interceptor pipeline is the heart of the firewall. Every tool call passes th
                                                          └──────────────┘
 ```
 
-**Pipeline stages (in order):**
+**Pipeline stages (in order):** stages marked _(optional)_ are registered only when enabled in the policy.
+
 1. **Rate Limiter** — Prevents abuse (global, per-tool, per-session)
 2. **Cost Tracker** — Enforces session budgets
-3. **Argument Validator** — Schema and regex validation on arguments
-4. **Custom Rules Engine** — YAML-defined allow/block/approval rules
-5. **Read-Only Check** — Blocks write operations when enabled
-6. **Approval Workflow** — Creates approval request, returns `approvalId` to the agent (async)
-7. **Audit Logger** — Records every decision (block, allow, approval) with full context
+3. **Secret Scanner** _(optional)_ — Blocks arguments containing secrets/credentials
+4. **Argument Validator** — Shell/SQL-safety and regex validation on arguments
+5. **Schema Validator** _(optional)_ — Validates arguments against the upstream's advertised `inputSchema`
+6. **Custom Rules Engine** — YAML-defined allow/block/approval rules (or shadow-logged in dry-run mode)
+7. **Read-Only Check** — Blocks write operations when enabled
+8. **Anomaly Detector** _(optional)_ — Flags calls that deviate from a session's behavioral baseline
+9. **Approval Workflow** — Creates approval request, returns `approvalId` to the agent (async)
+10. **Audit Logger** — Records every decision (block, allow, approval) with full context
 
 Each middleware can return `CONTINUE`, `BLOCK`, or `APPROVAL_REQUIRED`. On `BLOCK`, the pipeline short-circuits and returns an error. On `APPROVAL_REQUIRED`, an approval request is created and the agent receives an `approval_id` to track the outcome (approval happens asynchronously via the HTTP API or CLI).
 
@@ -683,29 +692,34 @@ audit:
 
 ## API Reference
 
-### Approval API (implemented)
+### Implemented APIs
 
 ```typescript
-// Health check
+// Approval API + health check (approval HTTP server)
 GET  /health
-
-// Pending approvals
 GET  /api/v1/approvals/pending
 GET  /api/v1/approvals/:id
-
-// Approval actions
 POST /api/v1/approvals/:id/approve
 POST /api/v1/approvals/:id/deny
+
+// Prometheus metrics (when transports/metrics is enabled)
+GET  /metrics
+
+// HTTP transport (when transports.http is enabled): JSON-RPC over POST, plus
+POST /            // JSON-RPC request (single message or batch)
+GET  /health
 ```
+
+Policy reload and validation are available out-of-band rather than over HTTP:
+the policy file is **hot-reloaded** on change, and `tool-use-firewall --validate <path>`
+validates a policy from the CLI.
 
 ### Planned APIs (not yet implemented)
 
 ```typescript
-// Configuration management (planned)
+// Configuration / policy management over HTTP (planned)
 POST /api/v1/config/reload
 POST /api/v1/config/validate
-
-// Policy management (planned)
 GET  /api/v1/policies
 POST /api/v1/policies
 PUT  /api/v1/policies/:id
@@ -715,9 +729,6 @@ DELETE /api/v1/policies/:id
 GET  /api/v1/audit/events?sessionId=xxx&toolName=xxx
 GET  /api/v1/audit/events/:id
 GET  /api/v1/audit/export?format=json&startDate=xxx&endDate=xxx
-
-// Metrics (planned)
-GET  /metrics
 ```
 
 ---

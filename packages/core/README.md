@@ -80,6 +80,7 @@ const re = safeRegExp("^SELECT\\s+.*$", "i");
 | `safeRegExp(pattern, flags?)` | Compile a regex safely, throws `UnsafeRegexError` on ReDoS patterns |
 | `isSafeRegex(pattern)` | Boolean check for ReDoS safety |
 | `globToRegex(pattern)` | Convert `*`-wildcard glob to anchored regex |
+| `UnsafeRegexError` | Thrown by `safeRegExp` when a pattern is rejected as unsafe |
 
 ## Related Packages
 
