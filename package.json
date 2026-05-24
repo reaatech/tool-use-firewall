@@ -5,7 +5,7 @@
   "description": "Policy enforcement layer between AI agents and MCP servers",
   "type": "module",
   "scripts": {
-    "build": "turbo run build",
+    "build": "pnpm install && turbo run build",
     "test": "turbo run test",
     "test:coverage": "turbo run test:coverage",
     "verify": "pnpm lint && pnpm typecheck && pnpm test && pnpm build",
