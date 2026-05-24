@@ -4,7 +4,7 @@
     "ignore": ["dist", ".turbo", "node_modules", "coverage"]
   },
   "organizeImports": {
-    "enabled": true
+    "enabled": false
   },
   "linter": {
     "enabled": true,
