@@ -1,6 +1,6 @@
 {
   "name": "@reaatech/tool-use-firewall-approvals",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "Human-in-the-loop approval workflow for tool-use-firewall",
   "license": "MIT",
   "author": "Rick Somers <rick@reaatech.com> (https://reaatech.com)",
