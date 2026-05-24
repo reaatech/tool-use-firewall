@@ -98,4 +98,79 @@ settings:
     expect(result.valid).toBe(false);
     expect(result.errors.length).toBeGreaterThan(0);
   });
+
+  it('errors on malformed YAML content', () => {
+    const path = policyFile('bad: [[[');
+    const result = validatePolicyFile(path);
+    expect(result.valid).toBe(false);
+    expect(result.errors.length).toBeGreaterThan(0);
+  });
+
+  it('errors on unsupported version', () => {
+    const path = policyFile(`
+version: "2.0"
+settings:
+  default_action: block
+`);
+    const result = validatePolicyFile(path);
+    expect(result.valid).toBe(false);
+    expect(result.errors.some((e) => /version/.test(e))).toBe(true);
+  });
+
+  it('collects patterns from conditionGroups', () => {
+    const path = policyFile(`
+version: "1.0"
+rules:
+  - id: test_rule
+    type: block
+    conditionGroups:
+      - allOf:
+          - argument: x
+            pattern: "^safe$"
+`);
+    const result = validatePolicyFile(path);
+    expect(result.valid).toBe(true);
+  });
+
+  it('collects patterns from read_only_exceptions', () => {
+    const path = policyFile(`
+version: "1.0"
+settings:
+  read_only: true
+read_only_exceptions:
+  - tools: ["read"]
+    conditions:
+      - argument: path
+        pattern: "^/safe/"
+`);
+    const result = validatePolicyFile(path);
+    expect(result.valid).toBe(true);
+  });
+
+  it('collects patterns from secret_scan', () => {
+    const path = policyFile(`
+version: "1.0"
+secret_scan:
+  enabled: true
+  patterns:
+    - name: key
+      pattern: "AKIA"
+`);
+    const result = validatePolicyFile(path);
+    expect(result.valid).toBe(true);
+  });
+
+  it('collects patterns from audit redaction', () => {
+    const path = policyFile(`
+version: "1.0"
+audit:
+  redaction:
+    patterns:
+      - name: email
+        pattern: "^[a-z]+$"
+        replacement: "***"
+`);
+    const result = validatePolicyFile(path);
+    expect(result.valid).toBe(true);
+  });
 });

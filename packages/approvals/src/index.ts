@@ -11,4 +11,4 @@ export type {
   Denial,
 } from './types.js';
 export { WebhookApprover, type WebhookApproverConfig } from './webhook-approver.js';
-export { ApprovalWorkflow } from './workflow.js';
+export { ApprovalWorkflow, type ApprovalWorkflowConfig } from './workflow.js';
