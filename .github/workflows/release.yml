@@ -53,18 +53,19 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Publish to npm
+      - name: Publish to GitHub Packages
         id: publish
         env:
-          NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
-          NPM_CONFIG_PROVENANCE: 'true'
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           # Only publish on release version commits
           COMMIT_MSG=$(git log -1 --format='%s')
           if echo "$COMMIT_MSG" | grep -qE '^chore\(release\): version packages'; then
-            echo "Release commit detected — publishing to npm"
-            echo "//registry.npmjs.org/:_authToken=${NPM_TOKEN}" >> ~/.npmrc
+            echo "Release commit detected — publishing to GitHub Packages"
+            cat >> ~/.npmrc <<EOF
+            @reaatech:registry=https://npm.pkg.github.com
+            //npm.pkg.github.com/:_authToken=${GITHUB_TOKEN}
+            EOF
             pnpm release
             echo "published=true" >> "$GITHUB_OUTPUT"
           else
@@ -72,15 +73,15 @@ jobs:
             echo "published=false" >> "$GITHUB_OUTPUT"
           fi
 
-      - name: Mirror published packages to GitHub Packages
+      - name: Mirror published packages to npm
         if: steps.publish.outputs.published == 'true'
+        continue-on-error: true
         env:
-          NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
+          NPM_CONFIG_PROVENANCE: 'true'
         run: |
-          cat >> .npmrc <<EOF
-          @reaatech:registry=https://npm.pkg.github.com
-          //npm.pkg.github.com/:_authToken=${NODE_AUTH_TOKEN}
-          EOF
+          echo "//registry.npmjs.org/:_authToken=${NPM_TOKEN}" >> ~/.npmrc
+          failed=0
           for name in $(node -e "
             const {execSync} = require('child_process');
             const tags = execSync('git tag --points-at HEAD').toString().trim().split('\n').filter(Boolean);
@@ -90,8 +91,10 @@ jobs:
             dir="packages/${name#@reaatech/tool-use-firewall-}"
             if [ ! -d "$dir" ]; then
               echo "ERROR: Cannot determine directory for package $name (expected $dir)"
-              exit 1
+              failed=1
+              continue
             fi
-            echo "Mirroring $name -> $dir"
-            (cd "$dir" && npm publish --registry=https://npm.pkg.github.com)
+            echo "Mirroring $name to npm"
+            (cd "$dir" && npm publish --access public) || { echo "ERROR: npm mirror failed for $name"; failed=1; }
           done
+          exit $failed
