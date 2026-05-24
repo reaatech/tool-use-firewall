@@ -4,6 +4,17 @@ import type { RequestContext } from '@reaatech/tool-use-firewall-core';
 import { Logger } from '@reaatech/tool-use-firewall-core';
 import type { ApprovalRequest, ApprovalResult, ApproverGroup } from './types.js';
 
+/** Config accepted by {@link ApprovalWorkflow}. `default_timeout_ms` and
+ * `max_pending_approvals` are optional here because the constructor applies its
+ * own defaults; a fully-parsed `ApprovalConfig` remains assignable. */
+export type ApprovalWorkflowConfig = Omit<
+  ApprovalConfig,
+  'default_timeout_ms' | 'max_pending_approvals'
+> & {
+  default_timeout_ms?: number;
+  max_pending_approvals?: number;
+};
+
 /** Manages human-in-the-loop approval requests for tool calls that require
  * authorization before execution. Supports multi-level approval chains with
  * configurable approver groups and minimum approval counts.
@@ -25,7 +36,7 @@ export class ApprovalWorkflow {
   private readonly maxPendingApprovals: number;
 
   constructor(
-    private readonly config: ApprovalConfig,
+    private readonly config: ApprovalWorkflowConfig,
     approverGroups: Map<string, ApproverGroup> = new Map(),
   ) {
     this.defaultTimeoutMs = config.default_timeout_ms ?? 300000;

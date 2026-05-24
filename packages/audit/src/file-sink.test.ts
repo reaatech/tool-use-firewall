@@ -1,9 +1,28 @@
-import { existsSync, mkdtempSync, readdirSync, readFileSync } from 'node:fs';
+import { existsSync, mkdtempSync, readdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { basename, join } from 'node:path';
 import { gunzipSync } from 'node:zlib';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { RotatingFileSink } from './file-sink.js';
+
+const mockFsControl = vi.hoisted(() => ({
+  failRename: false,
+  throwNonError: false,
+}));
+
+vi.mock('node:fs', async (importOriginal) => {
+  const actual = (await importOriginal()) as typeof import('node:fs');
+  return {
+    ...actual,
+    renameSync: ((...args: Parameters<typeof import('node:fs').renameSync>) => {
+      if (mockFsControl.failRename) {
+        if (mockFsControl.throwNonError) throw 'rename failed string';
+        throw new Error('rename failed');
+      }
+      return actual.renameSync(...args);
+    }) as typeof import('node:fs').renameSync,
+  };
+});
 
 function tmpFile(name = 'audit.log'): string {
   return join(mkdtempSync(join(tmpdir(), 'tuf-sink-')), name);
@@ -18,6 +37,8 @@ function rotatedFiles(path: string): string[] {
 describe('RotatingFileSink', () => {
   afterEach(() => {
     vi.useRealTimers();
+    mockFsControl.failRename = false;
+    mockFsControl.throwNonError = false;
   });
 
   it('appends newline-delimited lines to the file', () => {
@@ -85,8 +106,46 @@ describe('RotatingFileSink', () => {
   it('reports write errors via onError instead of throwing', () => {
     const onError = vi.fn();
     const sink = new RotatingFileSink(tmpFile(), { onError });
-    sink.close(); // close the fd so the next write fails with EBADF
+    sink.close();
     expect(() => sink.write('x\n')).not.toThrow();
     expect(onError).toHaveBeenCalledTimes(1);
+  });
+
+  it('reports rotation failures via onError', () => {
+    mockFsControl.failRename = true;
+    const onError = vi.fn();
+    const path = join(mkdtempSync(join(tmpdir(), 'tuf-sink-')), 'test.log');
+    const sink = new RotatingFileSink(path, { rotation: 'size', maxSizeBytes: 5, onError });
+    sink.write('abc\n');
+    sink.write('def\n');
+    sink.close();
+    expect(onError).toHaveBeenCalledWith(
+      'audit sidecar file rotation failed',
+      expect.objectContaining({ path }),
+    );
+  });
+
+  it('handles non-Error rotation failures', () => {
+    mockFsControl.failRename = true;
+    mockFsControl.throwNonError = true;
+    const onError = vi.fn();
+    const path = join(mkdtempSync(join(tmpdir(), 'tuf-sink-')), 'test.log');
+    const sink = new RotatingFileSink(path, { rotation: 'size', maxSizeBytes: 5, onError });
+    sink.write('abc\n');
+    sink.write('def\n');
+    sink.close();
+    expect(onError).toHaveBeenCalledWith(
+      'audit sidecar file rotation failed',
+      expect.objectContaining({ path }),
+    );
+  });
+
+  it('reads size from pre-existing file', () => {
+    const path = tmpFile();
+    writeFileSync(path, 'aaaa\n');
+    const sink = new RotatingFileSink(path, { rotation: 'size', maxSizeBytes: 10 });
+    sink.write('bbbb\n');
+    sink.close();
+    expect(readFileSync(path, 'utf-8')).toBe('aaaa\nbbbb\n');
   });
 });

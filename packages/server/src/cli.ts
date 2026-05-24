@@ -189,7 +189,7 @@ export function parseArgs(argv: string[]): ParsedArgs {
   return { configPath, upstreamCommand, upstreamArgs, approvalPort, httpPort, dryRun, initMode };
 }
 
-async function doInit(upstreamCommand: string, upstreamArgs: string[]): Promise<void> {
+export async function doInit(upstreamCommand: string, upstreamArgs: string[]): Promise<void> {
   console.error('Connecting to upstream MCP server to list tools...');
 
   const proc = spawn(upstreamCommand, upstreamArgs, {
@@ -245,7 +245,7 @@ async function doInit(upstreamCommand: string, upstreamArgs: string[]): Promise<
   process.exit(1);
 }
 
-function generatePolicyYaml(tools: Array<{ name: string; description?: string }>): string {
+export function generatePolicyYaml(tools: Array<{ name: string; description?: string }>): string {
   const lines: string[] = [
     'version: "1.0"',
     '',
@@ -345,7 +345,7 @@ export function doValidate(path: string): never {
   process.exit(1);
 }
 
-async function main(): Promise<void> {
+export async function main(): Promise<void> {
   const argv = process.argv.slice(2);
 
   if (argv.includes('--help') || argv.includes('-h')) {

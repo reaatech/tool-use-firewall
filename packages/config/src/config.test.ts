@@ -28,4 +28,22 @@ describe('policyConfigSchema', () => {
     });
     expect(result.success).toBe(false);
   });
+
+  it('rejects audit output type "file" without path', () => {
+    const result = policyConfigSchema.safeParse({
+      audit: {
+        output: [{ type: 'file' }],
+      },
+    });
+    expect(result.success).toBe(false);
+  });
+
+  it('rejects audit output type "sidecar" without endpoint and path', () => {
+    const result = policyConfigSchema.safeParse({
+      audit: {
+        output: [{ type: 'sidecar' }],
+      },
+    });
+    expect(result.success).toBe(false);
+  });
 });
