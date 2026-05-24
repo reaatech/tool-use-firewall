@@ -165,10 +165,12 @@ export const auditOutputSchema = z
     type: z.enum(['file', 'stdout', 'sidecar']),
     path: z.string().optional(),
     format: z.enum(['json']).default('json'),
+    // `file` and `sidecar` outputs share one rotating local-file writer.
     rotation: z.enum(['daily', 'size']).optional(),
     max_files: z.number().positive().optional(),
+    max_size_bytes: z.number().positive().optional(),
     compress: z.boolean().optional(),
-    // `sidecar` outputs forward events over HTTP to a log aggregator / SIEM.
+    // `sidecar` outputs may also forward events over HTTP to a log aggregator / SIEM.
     endpoint: z.string().optional(),
     api_key_env: z.string().optional(),
   })

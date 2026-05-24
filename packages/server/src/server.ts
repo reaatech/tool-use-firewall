@@ -147,6 +147,7 @@ export class MCPProxyServer {
     if (this.policyWatcher) {
       this.policyWatcher.close();
     }
+    this.auditLogger.close();
   }
 
   getStats(): Record<string, unknown> {

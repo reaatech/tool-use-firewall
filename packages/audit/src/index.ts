@@ -1,4 +1,3 @@
-import { type WriteStream, createWriteStream } from 'node:fs';
 import type { AuditConfig } from '@reaatech/tool-use-firewall-config';
 import {
   DEFAULT_REDACTION_PATTERNS,
@@ -7,6 +6,9 @@ import {
   redact,
   safeRegExp,
 } from '@reaatech/tool-use-firewall-core';
+import { RotatingFileSink } from './file-sink.js';
+
+export { RotatingFileSink, type FileSinkOptions } from './file-sink.js';
 
 /** Abort an in-flight sidecar HTTP delivery after this long so a slow or
  * unreachable aggregator never blocks audit logging indefinitely. */
@@ -42,9 +44,9 @@ export class AuditLogger {
   private readonly level: 'none' | 'summary' | 'full';
   private readonly redactionEnabled: boolean;
   private readonly redactionPatterns?: RedactionPattern[];
-  private readonly logger: Logger;
+  private readonly logger = new Logger('AuditLogger');
   private readonly sidecarHttpTargets: SidecarHttpTarget[] = [];
-  private readonly sidecarStreams: WriteStream[] = [];
+  private readonly fileSinks: RotatingFileSink[] = [];
 
   constructor(options: AuditLoggerOptions = {}) {
     const config = options.config;
@@ -62,16 +64,19 @@ export class AuditLogger {
       this.redactionPatterns = [...DEFAULT_REDACTION_PATTERNS, ...custom];
     }
 
-    let filePath: string | undefined;
+    const onError = (msg: string, meta: Record<string, unknown>) => this.logger.error(msg, meta);
+
     for (const out of config?.output ?? []) {
       if (out.type === 'stdout') {
         throw new Error(
           'audit.output.type "stdout" is not allowed: stdout is reserved for the MCP JSON-RPC stream',
         );
       }
+      // `file` and `sidecar` share one local-file writer; `file` is simply a
+      // local-only sink, while `sidecar` may also forward over HTTP.
       if (out.type === 'file') {
         if (!out.path) throw new Error('audit.output[file] requires a `path`');
-        filePath = out.path;
+        this.fileSinks.push(this.makeFileSink(out.path, out, onError));
       }
       if (out.type === 'sidecar') {
         if (!out.endpoint && !out.path) {
@@ -82,11 +87,37 @@ export class AuditLogger {
           this.sidecarHttpTargets.push({ endpoint: out.endpoint, apiKey });
         }
         if (out.path) {
-          this.sidecarStreams.push(createWriteStream(out.path, { flags: 'a' }));
+          this.fileSinks.push(this.makeFileSink(out.path, out, onError));
         }
       }
     }
-    this.logger = new Logger('AuditLogger', filePath);
+  }
+
+  private makeFileSink(
+    path: string,
+    out: {
+      rotation?: 'daily' | 'size';
+      max_files?: number;
+      max_size_bytes?: number;
+      compress?: boolean;
+    },
+    onError: (msg: string, meta: Record<string, unknown>) => void,
+  ): RotatingFileSink {
+    return new RotatingFileSink(path, {
+      rotation: out.rotation,
+      maxFiles: out.max_files,
+      maxSizeBytes: out.max_size_bytes,
+      compress: out.compress,
+      onError,
+    });
+  }
+
+  /** Flush and close all file sinks. Call on shutdown; HTTP delivery is
+   * fire-and-forget and needs no teardown. */
+  close(): void {
+    for (const sink of this.fileSinks) {
+      sink.close();
+    }
   }
 
   async log(event: AuditEvent): Promise<void> {
@@ -109,30 +140,21 @@ export class AuditLogger {
     const safeEvent = this.redactionEnabled ? redact(emitted, this.redactionPatterns) : emitted;
     this.logger.info('audit_event', safeEvent as unknown as Record<string, unknown>);
 
-    if (this.sidecarHttpTargets.length > 0 || this.sidecarStreams.length > 0) {
-      this.forwardToSidecars(safeEvent);
+    const body = JSON.stringify(safeEvent);
+    for (const sink of this.fileSinks) {
+      sink.write(`${body}\n`);
+    }
+
+    if (this.sidecarHttpTargets.length > 0) {
+      this.forwardToHttp(body);
     }
   }
 
-  /** Best-effort delivery of an audit event to each configured sidecar — an
-   * HTTP aggregator/SIEM endpoint, a local file, or both. Failures are logged
-   * to stderr and never propagate, so a downed aggregator (or a write error)
-   * cannot break the proxy or add latency to the request that produced the
-   * event. */
-  private forwardToSidecars(event: unknown): void {
-    const body = JSON.stringify(event);
-
-    for (const stream of this.sidecarStreams) {
-      stream.write(`${body}\n`, (error) => {
-        if (error) {
-          this.logger.error('audit sidecar file write failed', {
-            path: stream.path.toString(),
-            error: error.message,
-          });
-        }
-      });
-    }
-
+  /** Best-effort HTTP delivery of an audit event to each configured aggregator/
+   * SIEM endpoint. Fire-and-forget: failures are logged to stderr and never
+   * propagate, so a downed aggregator cannot break the proxy or add latency to
+   * the request that produced the event. */
+  private forwardToHttp(body: string): void {
     for (const target of this.sidecarHttpTargets) {
       const headers: Record<string, string> = { 'Content-Type': 'application/json' };
       if (target.apiKey) {
