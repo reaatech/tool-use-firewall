@@ -160,16 +160,36 @@ export const approvalConfigSchema = z.object({
   auto_approval: autoApprovalConfigSchema.optional(),
 });
 
-export const auditOutputSchema = z.object({
-  type: z.enum(['file', 'stdout', 'sidecar']),
-  path: z.string().optional(),
-  format: z.enum(['json']).default('json'),
-  rotation: z.enum(['daily', 'size']).optional(),
-  max_files: z.number().positive().optional(),
-  compress: z.boolean().optional(),
-  endpoint: z.string().optional(),
-  api_key_env: z.string().optional(),
-});
+export const auditOutputSchema = z
+  .object({
+    type: z.enum(['file', 'stdout', 'sidecar']),
+    path: z.string().optional(),
+    format: z.enum(['json']).default('json'),
+    // `file` and `sidecar` outputs share one rotating local-file writer.
+    rotation: z.enum(['daily', 'size']).optional(),
+    max_files: z.number().positive().optional(),
+    max_size_bytes: z.number().positive().optional(),
+    compress: z.boolean().optional(),
+    // `sidecar` outputs may also forward events over HTTP to a log aggregator / SIEM.
+    endpoint: z.string().optional(),
+    api_key_env: z.string().optional(),
+  })
+  .superRefine((out, ctx) => {
+    if (out.type === 'file' && !out.path) {
+      ctx.addIssue({
+        code: 'custom',
+        message: 'audit output type "file" requires a `path`',
+        path: ['path'],
+      });
+    }
+    if (out.type === 'sidecar' && !out.endpoint && !out.path) {
+      ctx.addIssue({
+        code: 'custom',
+        message: 'audit output type "sidecar" requires an `endpoint` URL and/or a `path`',
+        path: ['endpoint'],
+      });
+    }
+  });
 
 export const auditConfigSchema = z.object({
   level: z.enum(['none', 'summary', 'full']).default('full'),

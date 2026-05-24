@@ -33,8 +33,12 @@ If you're deploying AI agents that talk to databases, filesystems, or any MCP se
 The interceptor pipeline enforces policies in strict order:
 
 ```
-Request → Rate Limiter → Cost Tracker → Argument Validator → Policy Engine → Read-Only Check → Approval Workflow → Audit Logger → Upstream
+Request → Rate Limiter → Cost Tracker → Secret Scanner → Argument Validator
+        → Schema Validator → Policy Engine → Read-Only Check → Anomaly Detector
+        → Approval Workflow → Audit Logger → Upstream
 ```
+
+Stages are registered only when enabled in the policy (e.g. secret scanning, schema validation, and anomaly detection are opt-in). Inbound JSON-RPC frames may be single messages or batches (top-level arrays); each `tools/call` in a batch is intercepted independently.
 
 Data flow details and state management: [ARCHITECTURE.md](./ARCHITECTURE.md)
 
@@ -56,7 +60,16 @@ Data flow details and state management: [ARCHITECTURE.md](./ARCHITECTURE.md)
 - **SQL injection detection** — Pattern matching against known dangerous patterns
 - **Shell injection prevention** — Blocks metacharacters like `;`, `&&`, `` ` ``, `$()`
 - **Custom regex patterns** — User-defined validation per tool/argument
+- **JSON Schema validation** — Validate `tools/call` arguments against the upstream's advertised `inputSchema`
 - **ReDoS protection** — All regex patterns validated for safety before compilation
+
+### Secret Scanning
+- **Outbound secret detection** — Block tool calls whose arguments contain API keys, tokens, or other secrets
+- **Custom patterns** — Define named patterns per deployment
+
+### Anomaly Detection
+- **Behavioral baselines** — Flags tool calls that deviate from a session's recent pattern
+- **Configurable sensitivity** — Tune the window size and threshold per policy
 
 ### Read-Only Mode
 - **Global toggle** — Block all write operations when enabled
@@ -71,20 +84,112 @@ Data flow details and state management: [ARCHITECTURE.md](./ARCHITECTURE.md)
 ### Approval Workflows
 - **Multi-level chains** — Require approval from multiple groups
 - **Timeout handling** — Expired approvals automatically denied
-- **Multiple interfaces** — HTTP API, CLI prompts, webhook notifications
+- **Multiple interfaces** — HTTP API, CLI prompts, webhook, Slack, and Discord notifications
+- **Auto-approval** — Optionally auto-approve trusted tools after a threshold of safe calls
 - **Rate-limited API** — Per-IP token bucket on the approval HTTP endpoint
 
 ### Audit Logging
 - **Structured JSON** — Every decision recorded with full context
 - **Sensitive data redaction** — API keys, tokens, emails automatically redacted
 - **Level control** — `none`, `summary`, or `full` verbosity
-- **File output** — Optional file logging with rotation support
+- **File & sidecar output** — Write events to a rotating local file (daily/size rotation, max-files retention, gzip) and/or forward them over HTTP to a sidecar/SIEM endpoint (stdout is reserved for the MCP JSON-RPC stream)
+
+### Transports & Routing
+- **stdio & HTTP** — Run as a stdio proxy (default) or expose an HTTP transport
+- **Multi-upstream** — Route tools to different upstream MCP servers by glob pattern
+- **Time windows** — Restrict rules to specific days/hours with timezone support
+
+### Operations
+- **Policy hot-reload** — Edits to the policy file are picked up without a restart
+- **Dry-run / shadow mode** — Log what *would* be blocked without enforcing
+- **Prometheus metrics** — Optional `/metrics` endpoint (requests, blocks, approvals, latency)
+- **`--init` scaffolding** — Generate a starter policy from the upstream's `tools/list`
+- **`--validate` linting** — Validate a policy (schema + ReDoS) in CI without booting the proxy
 
 ---
 
 ## Installation
 
-### Local development
+The published entry point is **[`@reaatech/tool-use-firewall-server`](https://www.npmjs.com/package/@reaatech/tool-use-firewall-server)**, which ships the `tool-use-firewall` binary and pulls in the other `@reaatech/tool-use-firewall-*` packages. Run it without installing via `npx`:
+
+```bash
+npx @reaatech/tool-use-firewall-server \
+  --config ./policy.yaml \
+  --upstream node ./my-mcp-server.js
+```
+
+Or install the CLI globally:
+
+```bash
+npm install -g @reaatech/tool-use-firewall-server
+tool-use-firewall --config ./policy.yaml --upstream node ./my-mcp-server.js
+```
+
+> Requires Node.js ≥ 20.
+
+### Quick start
+
+Generate a starter policy from your upstream server's tool list, then run the firewall against it:
+
+```bash
+# 1. Scaffold a policy.generated.yaml from the upstream's tools/list
+tool-use-firewall --init --upstream node ./my-mcp-server.js
+
+# 2. Validate it (schema + ReDoS checks) — exits non-zero on failure, good for CI
+tool-use-firewall --validate ./policy.generated.yaml
+
+# 3. Run the proxy
+tool-use-firewall --config ./policy.generated.yaml --upstream node ./my-mcp-server.js
+```
+
+To plug into an MCP client (e.g. Claude Desktop), point the client at the firewall instead of the upstream:
+
+```json
+{
+  "mcpServers": {
+    "my-server": {
+      "command": "npx",
+      "args": [
+        "@reaatech/tool-use-firewall-server",
+        "--config", "/abs/path/to/policy.yaml",
+        "--upstream", "node",
+        "--", "/abs/path/to/my-mcp-server.js"
+      ]
+    }
+  }
+}
+```
+
+With the human-in-the-loop approval API enabled:
+
+```bash
+export APPROVAL_API_TOKEN="$(openssl rand -hex 32)"
+tool-use-firewall \
+  --config ./policy.yaml \
+  --upstream node ./my-mcp-server.js \
+  --approval-port 8080
+```
+
+Use `--upstream-args` for container/scripted environments where the upstream command and its args are a single string:
+
+```bash
+tool-use-firewall --config ./policy.yaml --upstream node --upstream-args "./my-mcp-server.js --port 9000"
+```
+
+### Programmatic use
+
+```ts
+import { MCPProxyServer } from '@reaatech/tool-use-firewall-server';
+
+const server = new MCPProxyServer({
+  policyPath: './policy.yaml',
+  upstreamCommand: 'node',
+  upstreamArgs: ['./my-mcp-server.js'],
+});
+await server.start();
+```
+
+### From source (contributors)
 
 ```bash
 git clone https://github.com/reaatech/tool-use-firewall.git
@@ -92,28 +197,36 @@ cd tool-use-firewall
 pnpm install
 pnpm build
 pnpm test
-```
 
-### Usage
-
-```bash
+# Run the local build against an example upstream
 pnpm dev -- --config ./policies/default.yaml --upstream node ./examples/basic-proxy/upstream-server.js
 ```
 
-Or with the approval API:
+---
 
-```bash
-export APPROVAL_API_TOKEN="$(openssl rand -hex 32)"
-pnpm dev -- \
-  --config ./policies/default.yaml \
-  --upstream node ./examples/basic-proxy/upstream-server.js \
-  --approval-port 8080
+## CLI reference
+
+```
+tool-use-firewall --config <path> --upstream <command> [options]
 ```
 
-Or using `--upstream-args` for container/scripted environments:
+| Flag | Description |
+| ---- | ----------- |
+| `--config, -c <path>` | Path to the policy YAML file (required to run the proxy) |
+| `--upstream, -u <command>` | Command to spawn the upstream MCP server (required to run the proxy) |
+| `--upstream-args <string>` | Space-separated args for the upstream, for scripted environments |
+| `--approval-port <port>` | Port for the human-in-the-loop approval HTTP API |
+| `--http-port <port>` | Port for the HTTP transport |
+| `--dry-run` | Shadow mode: log what would be blocked without enforcing |
+| `--init` | Scaffold a `policy.generated.yaml` from the upstream's `tools/list` |
+| `--validate <path>` | Validate a policy (schema + ReDoS) and exit non-zero on failure |
+| `--help, -h` | Show help |
+| `--version, -v` | Show version |
+
+Arguments after a literal `--` are forwarded to the upstream:
 
 ```bash
-pnpm dev -- --config ./policies/default.yaml --upstream node --upstream-args "./my-mcp-server.js --port 9000"
+tool-use-firewall --config p.yaml --upstream node -- ./mcp-server.js --port 9000
 ```
 
 ---

@@ -147,6 +147,7 @@ export class MCPProxyServer {
     if (this.policyWatcher) {
       this.policyWatcher.close();
     }
+    this.auditLogger.close();
   }
 
   getStats(): Record<string, unknown> {
@@ -347,7 +348,7 @@ export class MCPProxyServer {
         req.on('end', async () => {
           try {
             const line = body.trim();
-            const response = await this.processMessage(line);
+            const response = await this.processFrame(line);
             if (response) {
               res.writeHead(200, { 'Content-Type': 'application/json' });
               res.end(JSON.stringify(response));
@@ -563,33 +564,56 @@ export class MCPProxyServer {
   }
 
   private async handleDownstreamMessage(line: string): Promise<void> {
-    const response = await this.processMessage(line);
+    const response = await this.processFrame(line);
     if (response) {
       this.sendToAgent(response);
     }
   }
 
-  private processMessage(line: string): Promise<unknown | null> {
+  /** Process a single inbound frame, which may be one JSON-RPC message or a
+   * batch (top-level array). Returns the response to send back, or `null` when
+   * there is nothing to return (e.g. a notification, or a passthrough message
+   * whose response streams back from the upstream asynchronously). For a batch,
+   * resolves to an array of the non-null element responses, or `null` if every
+   * element was a notification/passthrough. */
+  processFrame(line: string): Promise<unknown | null> {
+    if (Buffer.byteLength(line, 'utf8') > MAX_MESSAGE_SIZE_BYTES) {
+      return Promise.resolve(this.makeErrorResponse(null, -32700, 'Message too large'));
+    }
+
+    let rawMessage: unknown;
+    try {
+      rawMessage = JSON.parse(line);
+    } catch {
+      return Promise.resolve(this.makeErrorResponse(null, -32700, 'Parse error'));
+    }
+
+    if (Array.isArray(rawMessage)) {
+      return this.processBatch(rawMessage);
+    }
+
+    return this.processMessage(rawMessage, line);
+  }
+
+  /** Process a JSON-RPC batch (array of messages) per the JSON-RPC 2.0 spec:
+   * each element is handled independently and the responses are returned as an
+   * array. An empty array is an invalid request. */
+  private async processBatch(messages: unknown[]): Promise<unknown | null> {
+    if (messages.length === 0) {
+      return this.makeErrorResponse(null, -32600, 'Invalid Request');
+    }
+    const responses = await Promise.all(
+      messages.map((element) => this.processMessage(element, JSON.stringify(element))),
+    );
+    const nonNull = responses.filter((r) => r !== null);
+    return nonNull.length > 0 ? nonNull : null;
+  }
+
+  private processMessage(rawMessage: unknown, rawJson: string): Promise<unknown | null> {
     return new Promise((resolve) => {
-      if (Buffer.byteLength(line, 'utf8') > MAX_MESSAGE_SIZE_BYTES) {
-        this.sendErrorResponse(null, -32700, 'Message too large');
-        resolve(null);
-        return;
-      }
-
-      let rawMessage: unknown;
-      try {
-        rawMessage = JSON.parse(line);
-      } catch {
-        this.sendErrorResponse(null, -32700, 'Parse error');
-        resolve(null);
-        return;
-      }
-
       const parseResult = jsonRpcMessageSchema.safeParse(rawMessage);
       if (!parseResult.success) {
-        this.sendErrorResponse(null, -32600, 'Invalid Request');
-        resolve(null);
+        resolve(this.makeErrorResponse(null, -32600, 'Invalid Request'));
         return;
       }
       const message = parseResult.data;
@@ -597,7 +621,7 @@ export class MCPProxyServer {
       const id = message.id;
 
       if (method !== 'tools/call') {
-        this.forwardToUpstream(line);
+        this.forwardToUpstream(rawJson);
         resolve(null);
         return;
       }
@@ -650,11 +674,12 @@ export class MCPProxyServer {
                 metadata: redact(result.metadata) as Record<string, unknown> | undefined,
               });
               this.metrics.upstreamLatencyMs.push(Date.now() - startTime);
-              this.sendErrorResponse(id, -32000, result.reason ?? 'Approval required', {
-                request_id: context.requestId,
-                approval_id: approvalId,
-              });
-              resolve(null);
+              resolve(
+                this.makeErrorResponse(id, -32000, result.reason ?? 'Approval required', {
+                  request_id: context.requestId,
+                  approval_id: approvalId,
+                }),
+              );
               return;
             }
 
@@ -671,19 +696,21 @@ export class MCPProxyServer {
             });
 
             this.metrics.upstreamLatencyMs.push(Date.now() - startTime);
-            this.sendErrorResponse(id, -32000, result.reason ?? 'Blocked by policy');
-            resolve(null);
+            resolve(this.makeErrorResponse(id, -32000, result.reason ?? 'Blocked by policy'));
             return;
           }
 
           const upstream = this.getUpstreamForTool(context.toolName ?? '');
           if (!upstream) {
-            this.sendErrorResponse(id, -32000, 'No upstream configured for this tool');
-            resolve(null);
+            resolve(this.makeErrorResponse(id, -32000, 'No upstream configured for this tool'));
             return;
           }
 
-          const upstreamResponse = await this.forwardToUpstreamAndWait(line, id, upstream.process);
+          const upstreamResponse = await this.forwardToUpstreamAndWait(
+            rawJson,
+            id,
+            upstream.process,
+          );
 
           await this.auditLogger.log({
             type: 'REQUEST_ALLOWED',
@@ -736,8 +763,7 @@ export class MCPProxyServer {
           }
 
           this.metrics.upstreamLatencyMs.push(Date.now() - startTime);
-          this.sendErrorResponse(id, -32000, fwError.message, errorData);
-          resolve(null);
+          resolve(this.makeErrorResponse(id, -32000, fwError.message, errorData));
         });
     });
   }
@@ -812,18 +838,17 @@ export class MCPProxyServer {
     }
   }
 
-  private sendErrorResponse(
+  private makeErrorResponse(
     id: number | string | null | undefined,
     code: number,
     message: string,
     data?: Record<string, unknown>,
-  ): void {
-    const response = {
+  ): Record<string, unknown> {
+    return {
       jsonrpc: '2.0',
       id: id ?? null,
       error: { code, message, data },
     };
-    this.sendToAgent(response);
   }
 
   private generateRequestId(): string {

@@ -6,7 +6,7 @@
 
 > **Status:** Pre-1.0 — APIs may change in minor versions. Pin to a specific version in production.
 
-Human-in-the-loop approval workflows for tool-use-firewall. Supports multi-level approval chains with timeout handling, an HTTP approval API, CLI prompts, and webhook notifications.
+Human-in-the-loop approval workflows for tool-use-firewall. Supports multi-level approval chains with timeout handling, an HTTP approval API, CLI prompts, and webhook, Slack, and Discord notifications.
 
 ## Installation
 
@@ -24,6 +24,7 @@ pnpm add @reaatech/tool-use-firewall-approvals
 - **Rate-limited API** — Per-IP token bucket on the approval HTTP endpoint
 - **CLI approver** — Console-based approval prompts (writes to stderr, never stdout)
 - **Webhook approver** — Sends approval requests via HTTP POST with configurable API keys
+- **Slack & Discord approvers** — Post approval requests to a Slack or Discord channel via incoming webhooks
 - **Bounded storage** — FIFO eviction when pending queue exceeds capacity
 
 ## Quick Start
@@ -57,7 +58,10 @@ console.log(approvalId); // "appr_<uuid>"
 | `ApprovalWorkflow` | Core workflow engine: `requestApproval`, `approve`, `deny`, `getStatus`, `listPending` |
 | `createApprovalApi` | Express app factory: routes at `/api/v1/approvals/*` with Bearer auth |
 | `CLIApprover` | Console-based `ApproverGroup` for local approval prompts |
-| `WebhookApprover` | HTTP-based `ApproverGroup` for external approval systems |
+| `WebhookApprover` / `WebhookApproverConfig` | HTTP-based `ApproverGroup` for external approval systems |
+| `SlackApprover` / `SlackApproverConfig` | Posts approval requests to a Slack channel via an incoming webhook |
+| `DiscordApprover` / `DiscordApproverConfig` | Posts approval requests to a Discord channel via an incoming webhook |
+| `CLIApproverConfig` | Config type for `CLIApprover` |
 | `ApprovalRequest` | `{ id, context, status, createdAt, expiresAt, requiredApprovers, approvals, denials, minApprovals }` |
 | `ApprovalResult` | `{ success, status?, pendingApprovers?, reason? }` |
 | `ApproverGroup` | Interface: `notify(request: ApprovalRequest): Promise<void>` |

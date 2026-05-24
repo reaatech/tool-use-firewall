@@ -37,3 +37,4 @@ export {
   type ValidationRule,
   validationRuleSchema,
 } from './schema.js';
+export { type PolicyValidationResult, validatePolicyFile } from './validate.js';

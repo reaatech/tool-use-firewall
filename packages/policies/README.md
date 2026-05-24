@@ -23,6 +23,9 @@ pnpm add @reaatech/tool-use-firewall-policies
 - **Session cost tracker** — Per-session budget enforcement with tool-level pricing and warn/block actions
 - **SQL validator** — Blocked patterns, injection detection, WHERE clause enforcement, read-only mode
 - **Argument validator** — Regex, shell-safety, and SQL-safety validators with custom rules from config
+- **Schema validator** — Validates `tools/call` arguments against the upstream's advertised JSON `inputSchema`
+- **Secret scanner** — Blocks tool calls whose arguments contain API keys, tokens, or other secrets
+- **Anomaly detector** — Flags tool calls that deviate from a session's recent behavioral baseline
 - **Read-only check** — Global toggle with per-tool exceptions and timing-safe bypass tokens
 - **All implement `Middleware`** — Drop into any `InterceptorPipeline`
 
@@ -67,6 +70,9 @@ const evalResult = await engine.evaluate(ctx);
 | `ArgumentValidator` | Middleware: schema and regex validation of tool arguments |
 | `SQLValidator` | Comprehensive SQL query validation (blocked patterns, injection, WHERE) |
 | `SQLValidationResult` / `SQLValidationConfig` | SQL validator types |
+| `SchemaValidator` | Middleware: validates arguments against the upstream's advertised JSON `inputSchema` |
+| `SecretScanner` | Middleware: blocks tool calls whose arguments contain secrets |
+| `AnomalyDetector` | Middleware: flags calls that deviate from a session's behavioral baseline |
 | `ReadOnlyCheck` | Middleware: blocks write operations when read-only mode is enabled |
 | `ValidatorFn` / `ValidationResult` | Argument validator function types |
 

@@ -86,6 +86,21 @@ describe('parseArgs', () => {
     error.mockRestore();
   });
 
+  it('parses --validate <path> without requiring --config or --upstream', () => {
+    const parsed = parseArgs(['--validate', 'policy.yaml']);
+    expect(parsed.validatePath).toBe('policy.yaml');
+  });
+
+  it('rejects --validate without a path', () => {
+    const exit = vi.spyOn(process, 'exit').mockImplementation(() => {
+      throw new Error('exit');
+    });
+    const error = vi.spyOn(console, 'error').mockImplementation(() => {});
+    expect(() => parseArgs(['--validate', '--config', 'p.yaml'])).toThrow('exit');
+    exit.mockRestore();
+    error.mockRestore();
+  });
+
   it('exits when --config is missing', () => {
     const exit = vi.spyOn(process, 'exit').mockImplementation(() => {
       throw new Error('exit');

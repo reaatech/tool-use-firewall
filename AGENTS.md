@@ -10,8 +10,8 @@ This is a **pnpm workspace monorepo** managed with Turborepo.
 packages/
   core/       — Types, errors, logger, redactor, safe-regex
   config/     — Policy schema (Zod) + YAML loader
-  policies/   — Policy engine, rate limiter, cost tracker, validators
-  approvals/  — Approval workflow, HTTP API, CLI/webhook approvers
+  policies/   — Policy engine, rate limiter, cost tracker, validators, secret scanner, anomaly detector
+  approvals/  — Approval workflow, HTTP API, CLI/webhook/Slack/Discord approvers
   audit/      — Audit logging with redaction
   server/     — MCP proxy server, CLI, interceptor pipeline
 e2e/          — End-to-end tests
