@@ -5,6 +5,7 @@
 "@reaatech/tool-use-firewall-approvals": minor
 "@reaatech/tool-use-firewall-audit": minor
 "@reaatech/tool-use-firewall-server": minor
+"tool-use-firewall": minor
 ---
 
 Initial public release of tool-use-firewall — a policy enforcement layer that sits between AI agents and MCP servers. Intercepts every `tools/call` to apply rate limiting, argument validation (SQL/shell injection, custom regex), cost budgets, read-only enforcement, anomaly detection, secret scanning, and human-in-the-loop approval chains, with structured audit logging and redaction.

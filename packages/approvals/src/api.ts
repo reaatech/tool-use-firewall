@@ -1,7 +1,7 @@
 import { timingSafeEqual } from 'node:crypto';
 import { Logger, redact } from '@reaatech/tool-use-firewall-core';
 import { TokenBucket } from '@reaatech/tool-use-firewall-policies';
-import express from 'express';
+import type { Application, NextFunction, Request, Response } from 'express';
 import { z } from 'zod';
 import type { ApprovalWorkflow } from './workflow.js';
 
@@ -30,22 +30,26 @@ const denyBodySchema = z.object({
  * - `POST /api/v1/approvals/:id/approve` — Approve a request
  * - `POST /api/v1/approvals/:id/deny` — Deny a request
  *
+ * Express is imported lazily so consumers that only use the CLI/Slack/Discord/
+ * webhook approvers never need it installed.
+ *
  * @example
  * ```ts
- * const app = createApprovalApi(workflow, apiKey);
+ * const app = await createApprovalApi(workflow, apiKey);
  * app.listen(3001, '127.0.0.1', () => {
  *   console.log('Approval API listening on port 3001');
  * });
  * ```
  */
-export function createApprovalApi(
+export async function createApprovalApi(
   workflow: ApprovalWorkflow,
   apiKey: string,
   opts?: { getStats?: () => Record<string, unknown> },
-): express.Application {
+): Promise<Application> {
   if (typeof apiKey !== 'string' || apiKey.length === 0) {
     throw new Error('createApprovalApi requires a non-empty apiKey');
   }
+  const { default: express } = await import('express');
   const app = express();
   const logger = new Logger('ApprovalApi');
 
@@ -201,12 +205,10 @@ export function createApprovalApi(
     }
   });
 
-  app.use(
-    (err: Error, _req: express.Request, res: express.Response, _next: express.NextFunction) => {
-      logger.error('Unhandled API error', { error: err.message });
-      res.status(500).json({ error: 'Internal server error' });
-    },
-  );
+  app.use((err: Error, _req: Request, res: Response, _next: NextFunction) => {
+    logger.error('Unhandled API error', { error: err.message });
+    res.status(500).json({ error: 'Internal server error' });
+  });
 
   return app;
 }

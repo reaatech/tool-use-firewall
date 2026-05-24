@@ -110,10 +110,10 @@ Data flow details and state management: [ARCHITECTURE.md](./ARCHITECTURE.md)
 
 ## Installation
 
-The published entry point is **[`@reaatech/tool-use-firewall-server`](https://www.npmjs.com/package/@reaatech/tool-use-firewall-server)**, which ships the `tool-use-firewall` binary and pulls in the other `@reaatech/tool-use-firewall-*` packages. Run it without installing via `npx`:
+The published entry point is **[`tool-use-firewall`](https://www.npmjs.com/package/tool-use-firewall)**, which ships the `tool-use-firewall` binary and pulls in the `@reaatech/tool-use-firewall-*` packages. Run it without installing via `npx`:
 
 ```bash
-npx @reaatech/tool-use-firewall-server \
+npx tool-use-firewall \
   --config ./policy.yaml \
   --upstream node ./my-mcp-server.js
 ```
@@ -121,11 +121,13 @@ npx @reaatech/tool-use-firewall-server \
 Or install the CLI globally:
 
 ```bash
-npm install -g @reaatech/tool-use-firewall-server
+npm install -g tool-use-firewall
 tool-use-firewall --config ./policy.yaml --upstream node ./my-mcp-server.js
 ```
 
 > Requires Node.js ≥ 20.
+>
+> `tool-use-firewall` is a thin alias for [`@reaatech/tool-use-firewall-server`](https://www.npmjs.com/package/@reaatech/tool-use-firewall-server) — use whichever name you prefer. For a narrower dependency surface, import the scoped `@reaatech/tool-use-firewall-*` packages directly.
 
 ### Quick start
 

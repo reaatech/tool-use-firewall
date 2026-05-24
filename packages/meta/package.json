@@ -1,15 +1,15 @@
 {
-  "name": "@reaatech/tool-use-firewall-config",
+  "name": "tool-use-firewall",
   "version": "0.1.0",
-  "description": "Policy configuration schema and loader for tool-use-firewall",
+  "description": "Policy enforcement layer between AI agents and MCP servers — the `tool-use-firewall` CLI and a re-export of the full API",
   "license": "MIT",
   "author": "Rick Somers <rick@reaatech.com> (https://reaatech.com)",
   "repository": {
     "type": "git",
     "url": "git+https://github.com/reaatech/tool-use-firewall.git",
-    "directory": "packages/config"
+    "directory": "packages/meta"
   },
-  "homepage": "https://github.com/reaatech/tool-use-firewall/tree/main/packages/config#readme",
+  "homepage": "https://github.com/reaatech/tool-use-firewall#readme",
   "bugs": {
     "url": "https://github.com/reaatech/tool-use-firewall/issues"
   },
@@ -20,6 +20,9 @@
   "main": "./dist/index.cjs",
   "module": "./dist/index.js",
   "types": "./dist/index.d.ts",
+  "bin": {
+    "tool-use-firewall": "./dist/cli.js"
+  },
   "exports": {
     ".": {
       "import": {
@@ -38,32 +41,25 @@
   "keywords": [
     "mcp",
     "firewall",
-    "security",
-    "ai",
-    "proxy",
+    "ai-agent",
     "policy",
-    "config",
-    "yaml",
-    "zod"
+    "security",
+    "proxy",
+    "cli"
   ],
   "publishConfig": {
     "access": "public"
   },
   "scripts": {
     "build": "tsup",
-    "test": "vitest run",
-    "test:coverage": "vitest run --coverage",
     "clean": "rm -rf dist"
   },
   "dependencies": {
-    "@reaatech/tool-use-firewall-core": "workspace:*",
-    "yaml": "^2.9.0",
-    "zod": "^4.4.3"
+    "@reaatech/tool-use-firewall-server": "workspace:*"
   },
   "devDependencies": {
     "@types/node": "^25.8.0",
     "tsup": "^8.4.0",
-    "typescript": "^5.8.3",
-    "vitest": "^4.1.7"
+    "typescript": "^5.8.3"
   }
 }

@@ -121,7 +121,7 @@ export class MCPProxyServer {
     this.auditLogger = new AuditLogger({ config: this.policyConfig.audit });
     this.buildPipeline(this.policyConfig);
     this.startPolicyWatcher();
-    this.startApprovalServer(this.policyConfig);
+    await this.startApprovalServer(this.policyConfig);
     await this.startUpstreams(this.policyConfig);
     this.startMetricsServer(this.policyConfig);
     this.startHttpTransport(this.policyConfig);
@@ -375,7 +375,7 @@ export class MCPProxyServer {
     });
   }
 
-  private startApprovalServer(config: PolicyConfig): void {
+  private async startApprovalServer(config: PolicyConfig): Promise<void> {
     if (!config.approvals || !this.options.approvalPort) {
       return;
     }
@@ -395,7 +395,7 @@ export class MCPProxyServer {
       );
     }
     const bindHost = config.approval_api.bind_host;
-    const app = createApprovalApi(this.approvalWorkflow, apiKey, {
+    const app = await createApprovalApi(this.approvalWorkflow, apiKey, {
       getStats: () => this.getStats(),
     });
     this.approvalServer = app.listen(this.options.approvalPort, bindHost, () => {
