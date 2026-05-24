@@ -14,3 +14,4 @@ This release also adds:
 - **JSON-RPC batch support** — batched requests (top-level arrays) are now intercepted per-element instead of being rejected.
 - **`--validate <policy.yaml>`** — a CLI subcommand (and `validatePolicyFile` API in `@reaatech/tool-use-firewall-config`) that checks a policy against the schema and verifies every regex is ReDoS-safe, exiting non-zero on failure. Suitable as a CI gate.
 - HTTP-transport error responses are now returned in the response body instead of being written to stdout.
+- **Audit `sidecar` output** now forwards events over HTTP to a log aggregator/SIEM (using `endpoint` + optional `api_key_env` Bearer auth) with best-effort, non-blocking delivery — previously these schema fields were ignored. The policy schema now requires `endpoint` for `sidecar` outputs and `path` for `file` outputs.

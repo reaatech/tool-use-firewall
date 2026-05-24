@@ -1,4 +1,3 @@
-import { createWriteStream } from 'node:fs';
 import type { AuditConfig } from '@reaatech/tool-use-firewall-config';
 import {
   DEFAULT_REDACTION_PATTERNS,
@@ -7,6 +6,15 @@ import {
   redact,
   safeRegExp,
 } from '@reaatech/tool-use-firewall-core';
+
+/** Abort an in-flight sidecar delivery after this long so a slow or
+ * unreachable aggregator never blocks audit logging indefinitely. */
+const SIDECAR_TIMEOUT_MS = 5000;
+
+interface SidecarTarget {
+  endpoint: string;
+  apiKey?: string;
+}
 
 export type AuditDecision = 'ALLOW' | 'BLOCK' | 'APPROVAL_REQUIRED';
 
@@ -34,7 +42,7 @@ export class AuditLogger {
   private readonly redactionEnabled: boolean;
   private readonly redactionPatterns?: RedactionPattern[];
   private readonly logger: Logger;
-  private readonly sidecarStream?: ReturnType<typeof createWriteStream>;
+  private readonly sidecarTargets: SidecarTarget[] = [];
 
   constructor(options: AuditLoggerOptions = {}) {
     const config = options.config;
@@ -64,9 +72,11 @@ export class AuditLogger {
         filePath = out.path;
       }
       if (out.type === 'sidecar') {
-        if (out.path) {
-          this.sidecarStream = createWriteStream(out.path, { flags: 'a' });
+        if (!out.endpoint) {
+          throw new Error('audit.output[sidecar] requires an `endpoint` URL');
         }
+        const apiKey = out.api_key_env ? process.env[out.api_key_env] : undefined;
+        this.sidecarTargets.push({ endpoint: out.endpoint, apiKey });
       }
     }
     this.logger = new Logger('AuditLogger', filePath);
@@ -90,11 +100,42 @@ export class AuditLogger {
         : event;
 
     const safeEvent = this.redactionEnabled ? redact(emitted, this.redactionPatterns) : emitted;
-    const json = `${JSON.stringify(safeEvent)}\n`;
     this.logger.info('audit_event', safeEvent as unknown as Record<string, unknown>);
 
-    if (this.sidecarStream) {
-      this.sidecarStream.write(json);
+    if (this.sidecarTargets.length > 0) {
+      this.forwardToSidecars(safeEvent);
+    }
+  }
+
+  /** Best-effort delivery of an audit event to each configured sidecar
+   * endpoint. Fire-and-forget: failures are logged to stderr and never
+   * propagate, so a downed aggregator cannot break the proxy or add latency
+   * to the request that produced the event. */
+  private forwardToSidecars(event: unknown): void {
+    const body = JSON.stringify(event);
+    for (const target of this.sidecarTargets) {
+      const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+      if (target.apiKey) {
+        headers.Authorization = `Bearer ${target.apiKey}`;
+      }
+      const controller = new AbortController();
+      const timeout = setTimeout(() => controller.abort(), SIDECAR_TIMEOUT_MS);
+      fetch(target.endpoint, { method: 'POST', headers, body, signal: controller.signal })
+        .then((res) => {
+          if (!res.ok) {
+            this.logger.error('audit sidecar returned a non-2xx response', {
+              endpoint: target.endpoint,
+              status: res.status,
+            });
+          }
+        })
+        .catch((error) => {
+          this.logger.error('audit sidecar delivery failed', {
+            endpoint: target.endpoint,
+            error: error instanceof Error ? error.message : String(error),
+          });
+        })
+        .finally(() => clearTimeout(timeout));
     }
   }
 }

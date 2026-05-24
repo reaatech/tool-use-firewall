@@ -22,7 +22,7 @@ pnpm add @reaatech/tool-use-firewall-audit
 - **Configurable levels** — `none` (disabled), `summary` (minimal fields), `full` (complete request/response)
 - **Sensitive data redaction** — API keys, bearer tokens, emails, and custom patterns automatically redacted
 - **File output** — Optional file logging with rotation support (stdout is forbidden — it corrupts MCP streams)
-- **Sidecar output** — Optionally mirror events to a separate sidecar log stream alongside the file output
+- **Sidecar / SIEM output** — Forward each event over HTTP to a log aggregator, with optional Bearer auth; best-effort delivery that never blocks or breaks the proxy
 - **Silent mode** — Suppresses output during testing via `NODE_ENV=test` or explicit `silent` option
 
 ## Quick Start
@@ -33,7 +33,12 @@ import { AuditLogger, type AuditEvent } from "@reaatech/tool-use-firewall-audit"
 const logger = new AuditLogger({
   config: {
     level: "full",
-    output: [{ type: "file", path: "/var/log/audit.log" }],
+    output: [
+      { type: "file", path: "/var/log/audit.log" },
+      // Forward to a SIEM/log aggregator over HTTP. The API key is read from
+      // the named environment variable and sent as `Authorization: Bearer ...`.
+      { type: "sidecar", endpoint: "https://siem.example/ingest", api_key_env: "SIEM_TOKEN" },
+    ],
     redaction: { enabled: true },
   },
 });
