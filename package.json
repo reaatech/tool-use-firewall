@@ -1,5 +1,5 @@
 {
-  "name": "tool-use-firewall",
+  "name": "tool-use-firewall-monorepo",
   "version": "0.1.0",
   "private": true,
   "description": "Policy enforcement layer between AI agents and MCP servers",
@@ -15,7 +15,7 @@
     "typecheck": "tsc --noEmit -p tsconfig.typecheck.json",
     "clean": "turbo run clean && rm -rf node_modules",
     "dev": "tsx packages/server/src/cli.ts",
-    "security:audit": "pnpm audit --audit-level high",
+    "security:audit": "pnpm audit --audit-level moderate",
     "changeset": "changeset",
     "version-packages": "changeset version",
     "release": "turbo run build && changeset publish"
@@ -33,7 +33,7 @@
   "packageManager": "pnpm@10.22.0",
   "repository": {
     "type": "git",
-    "url": "https://github.com/reaatech/tool-use-firewall.git"
+    "url": "git+https://github.com/reaatech/tool-use-firewall.git"
   },
   "bugs": {
     "url": "https://github.com/reaatech/tool-use-firewall/issues"

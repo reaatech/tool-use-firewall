@@ -8,7 +8,9 @@
       "@reaatech/tool-use-firewall-policies": ["./packages/policies/src/index.ts"],
       "@reaatech/tool-use-firewall-approvals": ["./packages/approvals/src/index.ts"],
       "@reaatech/tool-use-firewall-audit": ["./packages/audit/src/index.ts"],
-      "@reaatech/tool-use-firewall-server": ["./packages/server/src/index.ts"]
+      "@reaatech/tool-use-firewall-server": ["./packages/server/src/index.ts"],
+      "@reaatech/tool-use-firewall-server/cli": ["./packages/server/src/cli.ts"],
+      "tool-use-firewall": ["./packages/meta/src/index.ts"]
     }
   }
 }

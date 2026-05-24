@@ -907,9 +907,9 @@ describe('MCPProxyServer internals', () => {
     expect((server as any).approvalServer).toBeUndefined();
   });
 
-  it('startApprovalServer throws when workflow not initialized', () => {
+  it('startApprovalServer throws when workflow not initialized', async () => {
     const server = new MCPProxyServer({ policyPath: testPolicyPath, approvalPort: 9999 });
-    expect(() =>
+    await expect(
       (server as any).startApprovalServer({
         version: '1.0',
         settings: {
@@ -921,13 +921,13 @@ describe('MCPProxyServer internals', () => {
         rules: [],
         approvals: { default_timeout_ms: 60000, max_pending_approvals: 100 },
       }),
-    ).toThrow('Approval workflow not initialized');
+    ).rejects.toThrow('Approval workflow not initialized');
   });
 
-  it('startApprovalServer throws when approval_api missing', () => {
+  it('startApprovalServer throws when approval_api missing', async () => {
     const server = new MCPProxyServer({ policyPath: testPolicyPath, approvalPort: 9999 });
     (server as any).approvalWorkflow = { stop: vi.fn() };
-    expect(() =>
+    await expect(
       (server as any).startApprovalServer({
         version: '1.0',
         settings: {
@@ -939,13 +939,13 @@ describe('MCPProxyServer internals', () => {
         rules: [],
         approvals: { default_timeout_ms: 60000, max_pending_approvals: 100 },
       }),
-    ).toThrow('approval_api');
+    ).rejects.toThrow('approval_api');
   });
 
-  it('startApprovalServer throws when token env not set', () => {
+  it('startApprovalServer throws when token env not set', async () => {
     const server = new MCPProxyServer({ policyPath: testPolicyPath, approvalPort: 9999 });
     (server as any).approvalWorkflow = { stop: vi.fn() };
-    expect(() =>
+    await expect(
       (server as any).startApprovalServer({
         version: '1.0',
         settings: {
@@ -958,14 +958,14 @@ describe('MCPProxyServer internals', () => {
         approvals: { default_timeout_ms: 60000, max_pending_approvals: 100 },
         approval_api: { token_env: 'MISSING_TOKEN_VAR', bind_host: '127.0.0.1' },
       }),
-    ).toThrow('token env var');
+    ).rejects.toThrow('token env var');
   });
 
   it('startApprovalServer creates server when configured properly', async () => {
     const server = new MCPProxyServer({ policyPath: testPolicyPath, approvalPort: 9876 });
     vi.stubEnv('TEST_APPROVAL_TOKEN', 'secret-value');
     (server as any).approvalWorkflow = { stop: vi.fn() };
-    (server as any).startApprovalServer({
+    await (server as any).startApprovalServer({
       version: '1.0',
       settings: { read_only: false, default_action: 'block', audit_level: 'full', dry_run: false },
       rules: [],
