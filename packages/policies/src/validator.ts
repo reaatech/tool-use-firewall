@@ -4,10 +4,9 @@ import type {
   MiddlewareResult,
   RequestContext,
 } from '@reaatech/tool-use-firewall-core';
-import { ValidationError } from '@reaatech/tool-use-firewall-core';
-import { globToRegex, safeRegExp } from '@reaatech/tool-use-firewall-core';
-import { SQLValidator } from './sql-validator.js';
+import { globToRegex, safeRegExp, ValidationError } from '@reaatech/tool-use-firewall-core';
 import type { SQLValidationConfig } from './sql-validator.js';
+import { SQLValidator } from './sql-validator.js';
 
 export interface ValidationResult {
   valid: boolean;

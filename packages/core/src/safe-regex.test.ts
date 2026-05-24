@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { UnsafeRegexError, globToRegex, isSafeRegex, safeRegExp } from './safe-regex.js';
+import { globToRegex, isSafeRegex, safeRegExp, UnsafeRegexError } from './safe-regex.js';
 
 describe('isSafeRegex', () => {
   it('accepts simple patterns', () => {
@@ -30,6 +30,20 @@ describe('safeRegExp', () => {
 
   it('throws on unsafe patterns', () => {
     expect(() => safeRegExp('(a+)+')).toThrow(UnsafeRegexError);
+  });
+
+  it('throws on syntactically invalid patterns that pass safety checks', () => {
+    expect(() => safeRegExp('[a')).toThrow(UnsafeRegexError);
+  });
+
+  it('accepts patterns with grouping parentheses', () => {
+    expect(isSafeRegex('(hello)')).toBe(true);
+    expect(isSafeRegex('(foo)(bar)')).toBe(true);
+  });
+
+  it('rejects patterns with excessive nesting depth', () => {
+    const deep = `${'('.repeat(11)}x${')'.repeat(11)}`;
+    expect(isSafeRegex(deep)).toBe(false);
   });
 });
 

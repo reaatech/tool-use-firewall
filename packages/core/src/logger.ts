@@ -1,4 +1,4 @@
-import { type WriteStream, createWriteStream } from 'node:fs';
+import { createWriteStream, type WriteStream } from 'node:fs';
 
 export type LogLevel = 'debug' | 'info' | 'warn' | 'error';
 

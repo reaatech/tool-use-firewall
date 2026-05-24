@@ -1,4 +1,4 @@
-import { ValidationError, isSafeRegex } from '@reaatech/tool-use-firewall-core';
+import { isSafeRegex, ValidationError } from '@reaatech/tool-use-firewall-core';
 import { loadPolicyConfig } from './load.js';
 import type { PolicyConfig } from './schema.js';
 

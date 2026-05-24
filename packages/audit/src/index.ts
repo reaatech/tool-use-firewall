@@ -8,7 +8,7 @@ import {
 } from '@reaatech/tool-use-firewall-core';
 import { RotatingFileSink } from './file-sink.js';
 
-export { RotatingFileSink, type FileSinkOptions } from './file-sink.js';
+export { type FileSinkOptions, RotatingFileSink } from './file-sink.js';
 
 /** Abort an in-flight sidecar HTTP delivery after this long so a slow or
  * unreachable aggregator never blocks audit logging indefinitely. */
