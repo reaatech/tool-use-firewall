@@ -1,6 +1,6 @@
 {
   "name": "tool-use-firewall",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "Policy enforcement layer between AI agents and MCP servers — the `tool-use-firewall` CLI and a re-export of the full API",
   "license": "MIT",
   "author": "Rick Somers <rick@reaatech.com> (https://reaatech.com)",

@@ -1,6 +1,6 @@
 {
   "name": "@reaatech/tool-use-firewall-policies",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "Policy engine, rate limiting, cost tracking, and argument validation for tool-use-firewall",
   "license": "MIT",
   "author": "Rick Somers <rick@reaatech.com> (https://reaatech.com)",
