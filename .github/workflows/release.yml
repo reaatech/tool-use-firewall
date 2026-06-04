@@ -1,8 +1,6 @@
 name: Release
 
 on:
-  push:
-    branches: [main]
   workflow_dispatch:
 
 concurrency:
@@ -20,18 +18,17 @@ jobs:
       contents: write
       pull-requests: write
       id-token: write
-      packages: write
     steps:
       - name: Checkout
-        uses: actions/checkout@v6
+        uses: actions/checkout@v4
         with:
           fetch-depth: 0
 
       - name: Setup pnpm
-        uses: pnpm/action-setup@v6
+        uses: pnpm/action-setup@v4
 
       - name: Setup Node.js
-        uses: actions/setup-node@v6
+        uses: actions/setup-node@v4
         with:
           node-version: ${{ env.NODE_VERSION }}
           cache: 'pnpm'
@@ -40,46 +37,23 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
-      # When changesets are present, opens/updates the "Version Packages" PR.
-      # When that PR has been merged (no changesets remain), runs `pnpm release`
-      # to build and publish, then creates the matching GitHub releases + tags.
-      # No commit-message heuristics — the action decides based on changeset state.
-      - name: Create release PR or publish
+      - name: Build packages
+        run: pnpm build
+
+      - name: Create release PR or publish to npm
         id: changesets
         uses: changesets/action@v1
         with:
-          version: pnpm version-packages
           publish: pnpm release
+          version: pnpm version-packages
           commit: 'chore(release): version packages'
           title: 'chore(release): version packages'
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          # setup-node's registry-url writes an .npmrc that authenticates via
+          # NODE_AUTH_TOKEN; without it the publish runs anonymously and npm
+          # returns E404 on PUT. NPM_TOKEN is kept for the changesets action's
+          # own .npmrc handling.
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+          NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
           NPM_CONFIG_PROVENANCE: 'true'
-
-      - name: Mirror published packages to GitHub Packages
-        if: steps.changesets.outputs.published == 'true'
-        env:
-          NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          PUBLISHED_PACKAGES: ${{ steps.changesets.outputs.publishedPackages }}
-        run: |
-          cat >> .npmrc <<EOF
-          @reaatech:registry=https://npm.pkg.github.com
-          //npm.pkg.github.com/:_authToken=${NODE_AUTH_TOKEN}
-          EOF
-          # GitHub Packages only accepts names scoped to the org, so the unscoped
-          # `tool-use-firewall` alias is published to npm only and skipped here.
-          echo "$PUBLISHED_PACKAGES" | node -e "
-            const pkgs = JSON.parse(require('fs').readFileSync(0, 'utf8'));
-            for (const { name } of pkgs) {
-              if (name.startsWith('@reaatech/')) console.log(name);
-            }
-          " | while read -r name; do
-            dir="packages/${name#@reaatech/tool-use-firewall-}"
-            if [ ! -d "$dir" ]; then
-              echo "ERROR: Cannot determine directory for package $name (expected $dir)"
-              exit 1
-            fi
-            echo "Mirroring $name -> $dir"
-            (cd "$dir" && npm publish --registry=https://npm.pkg.github.com)
-          done
