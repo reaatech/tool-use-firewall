@@ -39,6 +39,11 @@
     "url": "https://github.com/reaatech/tool-use-firewall/issues"
   },
   "homepage": "https://github.com/reaatech/tool-use-firewall#readme",
+  "pnpm": {
+    "overrides": {
+      "esbuild": "^0.28.1"
+    }
+  },
   "engines": {
     "node": ">=20.0.0"
   },
