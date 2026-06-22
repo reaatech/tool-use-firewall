@@ -41,7 +41,9 @@
   "homepage": "https://github.com/reaatech/tool-use-firewall#readme",
   "pnpm": {
     "overrides": {
-      "esbuild": "^0.28.1"
+      "esbuild": "^0.28.1",
+      "vite": "^7.3.5",
+      "js-yaml": "^4.2.0"
     }
   },
   "engines": {
