@@ -78,8 +78,8 @@
     "@types/supertest": "^7.2.0",
     "express": "^5.2.1",
     "supertest": "^7.2.2",
-    "tsup": "^8.4.0",
-    "typescript": "^6.0.3",
+    "tsup": "^9.0.0",
+    "typescript": "^7.0.2",
     "vitest": "^4.1.10"
   }
 }
