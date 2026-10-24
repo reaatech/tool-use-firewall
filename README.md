@@ -5,6 +5,7 @@
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.8-blue)](https://www.typescriptlang.org/)
 [![pnpm](https://img.shields.io/badge/pnpm-10.22-orange)](https://pnpm.io/)
 [![Vitest](https://img.shields.io/badge/test-vitest-green)](https://vitest.dev/)
+[![SafeSkill 50/100](https://img.shields.io/badge/SafeSkill-50%2F100_Use%20with%20Caution-orange)](https://safeskill.dev/scan/reaatech-tool-use-firewall)
 
 > **Policy enforcement layer between AI agents and MCP servers** — intercept, validate, and secure every tool call before it reaches the upstream.
 
